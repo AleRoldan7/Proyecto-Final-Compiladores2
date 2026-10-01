@@ -12,8 +12,8 @@ import ast.sentencias.*;
 import ast.tipos.Tipo;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.compi2.proyecto1compiladores2.GrammarPythonBaseVisitor;
-import org.compi2.proyecto1compiladores2.GrammarPythonParser;
+import compi2.proyectofinal.GrammarPythonBaseVisitor;
+import compi2.proyectofinal.GrammarPythonParser;
 import semantico.AnalisisContexto;
 
 import java.util.ArrayList;

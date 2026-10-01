@@ -14,8 +14,8 @@ import ast.sentencias.*;
 import ast.tipos.Tipo;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.compi2.proyecto1compiladores2.GrammarPigLatinBaseVisitor;
-import org.compi2.proyecto1compiladores2.GrammarPigLatinParser;
+import compi2.proyectofinal.GrammarPigLatinBaseVisitor;
+import compi2.proyectofinal.GrammarPigLatinParser;
 import semantico.AnalisisContexto;
 
 import java.util.ArrayList;

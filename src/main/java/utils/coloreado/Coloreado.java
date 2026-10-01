@@ -3,8 +3,8 @@ package utils.coloreado;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Token;
-import org.compi2.proyecto1compiladores2.GrammarPythonLexer;
-import org.compi2.proyecto1compiladores2.GrammarZetarianoLexer;
+import compi2.proyectofinal.GrammarPythonLexer;
+import compi2.proyectofinal.GrammarZetarianoLexer;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -2,8 +2,8 @@ package analisis;
 
 import ast.NodoAST;
 import org.antlr.v4.runtime.*;
-import org.compi2.proyecto1compiladores2.GrammarZetarianoLexer;
-import org.compi2.proyecto1compiladores2.GrammarZetarianoParser;
+import compi2.proyectofinal.GrammarZetarianoLexer;
+import compi2.proyectofinal.GrammarZetarianoParser;
 import semantico.AnalisisContexto;
 import semantico.coordinadorsemantico.AnalizadorSemanticoCoordinador;
 import semantico.coordinadorsemantico.InferirTipoCoordinador;

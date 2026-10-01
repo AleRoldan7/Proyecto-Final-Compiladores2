@@ -1,10 +1,10 @@
 package analisis;
 
 import ast.NodoAST;
+import compi2.proyectofinal.*;
 import enums.TipoArchivo;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.compi2.proyecto1compiladores2.*;
 import semantico.AnalisisContexto;
 import semantico.coordinadorsemantico.AnalizadorSemanticoCoordinador;
 import semantico.coordinadorsemantico.InferirTipoCoordinador;

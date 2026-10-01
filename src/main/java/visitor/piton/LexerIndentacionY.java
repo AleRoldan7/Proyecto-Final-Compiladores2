@@ -1,7 +1,7 @@
 package visitor.piton;
 
 import org.antlr.v4.runtime.*;
-import org.compi2.proyecto1compiladores2.GrammarPythonLexer;
+import compi2.proyectofinal.GrammarPythonLexer;
 import java.util.*;
 
 public class LexerIndentacionY implements TokenSource {

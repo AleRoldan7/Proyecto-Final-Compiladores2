@@ -2,11 +2,14 @@ module compi2.proyectofinal {
     requires javafx.controls;
     requires javafx.fxml;
 
-    requires org.controlsfx.controls;
     requires com.dlsc.formsfx;
-    requires net.synedra.validatorfx;
-    requires org.kordamp.bootstrapfx.core;
+    requires org.antlr.antlr4.runtime;
+    requires org.fxmisc.richtext;
+    requires static lombok;
+    requires org.testng;
+    requires org.junit.jupiter.api;
 
-    opens compi2.proyectofinal to javafx.fxml;
-    exports compi2.proyectofinal;
+    opens ui.view to javafx.graphics, javafx.fxml;
+    exports ui.view;
+    exports semantico;
 }

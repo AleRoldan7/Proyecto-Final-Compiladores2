@@ -14,8 +14,8 @@ import ast.tipos.Tipo;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.compi2.proyecto1compiladores2.GrammarZetarianoBaseVisitor;
-import org.compi2.proyecto1compiladores2.GrammarZetarianoParser;
+import compi2.proyectofinal.GrammarZetarianoBaseVisitor;
+import compi2.proyectofinal.GrammarZetarianoParser;
 
 import semantico.AnalisisContexto;
 
