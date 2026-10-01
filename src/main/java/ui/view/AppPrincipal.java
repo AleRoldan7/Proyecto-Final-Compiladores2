@@ -18,6 +18,7 @@ public class AppPrincipal extends Application {
         stage.setTitle("Código 3 direcciones");
         stage.setScene(scene);
         stage.show();
+
     }
 
     public static void main(String[] args) {
