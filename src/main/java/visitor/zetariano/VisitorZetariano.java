@@ -461,6 +461,7 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         return new CicloFor(linea(ctx), columna(ctx), inicializacion, condicion, incremento, cuerpo);
     }
 
+
     @Override
     public NodoAST visitSwitchCase(GrammarZetarianoParser.SwitchCaseContext ctx) {
 
@@ -505,6 +506,24 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         Bloque cuerpo = new Bloque(linea(ctx), columna(ctx), sentencias);
 
         return new SentenciaCase(linea(ctx), columna(ctx), valor, cuerpo);
+    }
+
+    /*VISITOR PARA EL CUERPO ASI NO HAY ERRORES EN COMPILACION SI NO VA LAS LLAVES EN CONDICIONALES O CICLOS*/
+    @Override
+    public NodoAST visitCuerpo(GrammarZetarianoParser.CuerpoContext ctx) {
+
+        if (ctx.bloque() != null) {
+            return visit(ctx.bloque());
+        }
+
+        List<Sentencia> sentencias = new ArrayList<>();
+        NodoAST nodo = visit(ctx.sentencia());
+
+        if (nodo instanceof Sentencia sentencia) {
+            sentencias.add(sentencia);
+        }
+
+        return new Bloque(linea(ctx), columna(ctx), sentencias);
     }
 
 
