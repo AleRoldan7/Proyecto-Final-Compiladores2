@@ -30,7 +30,7 @@ public class InferidorCrearObjeto implements InferirTipo<CrearObjeto> {
         for (Expresion argumento : argumentos) {
             Tipo tipo = inferirTipoCoordinador.inferir(argumento, contexto);
             if (tipo == null) {
-                argumentosValidos = false;   // el error ya se reportó
+                argumentosValidos = false;
             }
             tiposArgumentos.add(tipo);
         }

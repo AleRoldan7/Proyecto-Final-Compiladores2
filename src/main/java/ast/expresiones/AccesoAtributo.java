@@ -54,7 +54,7 @@ public class AccesoAtributo extends Expresion {
             }
 
             String temporal =
-                    contexto.nuevoTemporal();
+                    contexto.nuevoTemporal(tipoResultado);
 
             contexto.agregar(
                     "attr_get",
@@ -68,7 +68,7 @@ public class AccesoAtributo extends Expresion {
         }
 
         String temporal =
-                contexto.nuevoTemporal();
+                contexto.nuevoTemporal(tipoResultado);
 
         contexto.agregar("attr_get", basePlace, String.valueOf(contexto.desplazamiento(tipoContenedor, atributo)),
                 temporal,

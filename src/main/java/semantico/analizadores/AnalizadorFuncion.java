@@ -64,7 +64,7 @@ public class AnalizadorFuncion implements AnalizadorSemantico<DeclaracionFuncion
                 contexto.getTablaSimbolos().declarar(
                         parametro.getNombreParametro(),
                         Categoria.PARAMETRO,
-                        Tipos.describir(parametro.getTipoParametro()),   // antes: parametro.getTipoParametro().getNombre()
+                        Tipos.describir(parametro.getTipoParametro()),
                         parametro.isReferencia() ? "por referencia" : "por valor",
                         parametro.getLinea()
                 );

@@ -1,6 +1,7 @@
 package ast.expresiones;
 
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 import semantico.Tipos;
@@ -49,7 +50,7 @@ public class CrearArreglo extends Expresion {
             totalCeldas = contexto.binaria("*", total, String.valueOf(anchoElemento), enums.TipoDato.ENTERO);
         }
 
-        String temporal = contexto.nuevoTemporal();
+        String temporal = contexto.nuevoTemporal(TipoDato.ESTRUCTURA);
         contexto.agregar("new_array", tipoBase, totalCeldas, temporal);
 
         //Inicializar con valores si los hay

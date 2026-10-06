@@ -1,6 +1,7 @@
 package ast.expresiones;
 
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,6 +15,7 @@ public class LlamadaFuncion extends Expresion {
     private String nombre;
     private List<Expresion> argumentos;
     private boolean metodoDeClase;
+    private TipoDato tipoResultado;
 
     public LlamadaFuncion(int linea, int columna, String nombre, List<Expresion> argumentos) {
         super(linea, columna);
@@ -40,8 +42,8 @@ public class LlamadaFuncion extends Expresion {
         }
 
         if (ContextoC3D.esLectura(getNombre())) {
-            String leido = contexto.nuevoTemporal();
-            contexto.agregar("read", null, null, leido);
+            String leido = contexto.nuevoTemporal(tipoResultado);
+            contexto.agregar("read", null, null, leido, tipoResultado);
             return leido;
         }
 
@@ -58,7 +60,7 @@ public class LlamadaFuncion extends Expresion {
                 ? ContextoC3D.nombreFuncion(contexto.getClaseActual(), getNombre())
                 : getNombre();
 
-        String resultado = contexto.nuevoTemporal();
+        String resultado = contexto.nuevoTemporal(tipoResultado);
         int cantidad = lugares.size() + (metodoDeClase ? 1 : 0);
 
         contexto.agregar("call", nombreReal, String.valueOf(cantidad), resultado);

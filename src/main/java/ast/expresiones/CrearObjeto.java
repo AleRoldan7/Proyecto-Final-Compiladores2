@@ -1,6 +1,7 @@
 package ast.expresiones;
 
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -31,7 +32,7 @@ public class CrearObjeto extends Expresion {
             }
         }
 
-        String objeto = contexto.nuevoTemporal();
+        String objeto = contexto.nuevoTemporal(TipoDato.OBJETO);
         contexto.agregar("new", getNombreClase(), String.valueOf(contexto.tamanio(getNombreClase())), objeto);
 
         String constructor = ContextoC3D.nombreConstructor(getNombreClase());

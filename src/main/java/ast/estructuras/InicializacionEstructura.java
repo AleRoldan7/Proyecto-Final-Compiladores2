@@ -25,7 +25,7 @@ public class InicializacionEstructura extends Expresion {
     public String generarC3D(ContextoC3D contexto) {
 
         int ancho = contexto.tamanioEstructura(nombreTipo);
-        String destino = contexto.nuevoTemporal();
+        String destino = contexto.nuevoTemporal(TipoDato.ESTRUCTURA);
         contexto.agregar("new", nombreTipo, String.valueOf(ancho), destino);
 
         List<String> ordenCampos = contexto.camposDeEstructura(nombreTipo);
@@ -39,7 +39,7 @@ public class InicializacionEstructura extends Expresion {
 
             if (layout.esEmbebido()) {
                 for (int k = 0; k < layout.ancho(); k++) {
-                    String celda = contexto.nuevoTemporal();
+                    String celda = contexto.nuevoTemporal(TipoDato.ESTRUCTURA);
                     TipoDato tipoCelda = contexto.tipoDeCelda(layout.tipoAnidado(), k);
                     contexto.agregar("attr_get", origen, String.valueOf(k), celda, tipoCelda);
                     contexto.agregar("field_set", String.valueOf(layout.offset() + k), celda, destino);

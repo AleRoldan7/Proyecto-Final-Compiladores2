@@ -19,20 +19,23 @@ public class InferidorAsignacion implements InferirTipo<Asignacion> {
 
         Tipo destino = inferirTipoCoordinador.inferir(nodoAsignacion.getDestino(), analisisContexto);
 
-        // "x <<" lee del teclado y convierte al tipo del destino
-        Tipo valor = esLectura(nodoAsignacion.getValor())
-                ? destino
-                : inferirTipoCoordinador.inferir(nodoAsignacion.getValor(), analisisContexto);
+        if (destino == null) {
+            return null;
+        }
 
-        // Si algo ya falló, el error está reportado: no encadenamos otro
-        if (destino == null || valor == null) {
+        if (esLectura(nodoAsignacion.getValor())) {
+            return destino;
+        }
+
+        Tipo valor = inferirTipoCoordinador.inferir(nodoAsignacion.getValor(), analisisContexto);
+
+        if (valor == null) {
             return destino;
         }
 
         if (!Tipos.asignable(destino, valor, analisisContexto)) {
-            analisisContexto.reportarError(nodoAsignacion.getLinea(), nodoAsignacion.getColumna(),
-                    "No se puede asignar un valor de tipo " + Tipos.describir(valor, analisisContexto)
-                            + " a una variable de tipo " + Tipos.describir(destino, analisisContexto));
+            analisisContexto.reportarError(nodoAsignacion.getLinea(), nodoAsignacion.getColumna(), "No se puede asignar un valor de tipo "
+                    + Tipos.describir(valor, analisisContexto) + " a una variable de tipo " + Tipos.describir(destino, analisisContexto));
         }
 
         return destino;

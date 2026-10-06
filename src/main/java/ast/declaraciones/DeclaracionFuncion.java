@@ -36,10 +36,31 @@ public class DeclaracionFuncion extends Declaracion {
         // Declarar parámetros
         if (parametros != null) {
             for (Parametro p : parametros) {
-                contexto.agregar("param_decl",
-                        p.getTipoParametro().getNombre(),
-                        p.getNombreParametro(),
-                        null);
+
+                String nombreTipo = p.getTipoParametro().getNombre();
+
+                boolean esArreglo = p.isArreglo()
+                        || (nombreTipo != null && nombreTipo.contains("["));
+
+                if (esArreglo) {
+                    // Un arreglo viaja como DIRECCIÓN del heap, no como valor.
+                    // En "resultado" se guarda el tipo de los elementos.
+                    String tipoElemento = nombreTipo;
+
+                    if (tipoElemento != null && tipoElemento.contains("[")) {
+                        tipoElemento = tipoElemento.substring(0, tipoElemento.indexOf("["));
+                    }
+
+                    contexto.agregar("param_decl",
+                            "arreglo",
+                            p.getNombreParametro(),
+                            tipoElemento);
+                } else {
+                    contexto.agregar("param_decl",
+                            nombreTipo,
+                            p.getNombreParametro(),
+                            null);
+                }
             }
         }
 

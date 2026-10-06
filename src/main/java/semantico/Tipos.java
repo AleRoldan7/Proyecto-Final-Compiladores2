@@ -269,7 +269,8 @@ public class Tipos {
         }
 
         if (esNull(real)) {
-            return esperado.isArreglo() || canonico(esperado, contexto) == TipoDato.OBJETO;
+            return esperado.isArreglo()
+                    || canonico(esperado, contexto) == TipoDato.OBJETO;
         }
 
         if (esperado.isArreglo() != real.isArreglo()) {
@@ -277,8 +278,22 @@ public class Tipos {
         }
 
         if (esperado.isArreglo()) {
-            return esperado.getDimensiones() == real.getDimensiones()
-                    && base(esperado).equals(base(real));
+
+            if (esperado.getDimensiones() != real.getDimensiones()) {
+                return false;
+            }
+
+            String baseEsperado = base(esperado);
+            String baseReal = base(real);
+
+            if (baseEsperado.equals(baseReal)) {
+                return true;
+            }
+
+            return contexto.getDialecto().asignable(
+                    canonico(esperado, contexto),
+                    canonico(real, contexto)
+            );
         }
 
         if (base(esperado).equals(base(real))) {

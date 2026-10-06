@@ -36,27 +36,34 @@ public class InferidorLlamadaFuncion implements InferirTipo<LlamadaFuncion> {
         int linea = nodoLlamada.getLinea();
         int columna = nodoLlamada.getColumna();
 
-        List<Expresion> argumentos = nodoLlamada.getArgumentos() == null
-                ? List.of() : nodoLlamada.getArgumentos();
-
-        List<Tipo> tiposArgumentos = new ArrayList<>();
-        boolean argumentosValidos = true;
-
-        for (Expresion argumento : argumentos) {
-            Tipo tipo = inferirTipoCoordinador.inferir(argumento, analisisContexto);
-            if (tipo == null) {
-                argumentosValidos = false;
-            }
-            tiposArgumentos.add(tipo);
-        }
+        List<Expresion> argumentos = nodoLlamada.getArgumentos() == null ? List.of() : nodoLlamada.getArgumentos();
 
         if (esLectura(nombre)) {
             String nombreTexto = analisisContexto.getDialecto().nombrarTipo(TipoDato.TEXTO);
             return Tipos.simple(linea, columna, nombreTexto);
         }
 
+
         if (IMPRESIONES.contains(nombre)) {
+
+            for (Expresion argumento:  argumentos) {
+                inferirTipoCoordinador.inferir(argumento, analisisContexto);
+            }
             return Tipos.simple(linea, columna, Tipos.VOID);
+        }
+
+        List<Tipo> tiposArgumentos = new ArrayList<>();
+        boolean argumentosValidos = true;
+
+        for (Expresion argumento : argumentos) {
+
+            Tipo tipo = inferirTipoCoordinador.inferir(argumento, analisisContexto);
+
+            if (tipo == null) {
+                argumentosValidos = false;
+            }
+
+            tiposArgumentos.add(tipo);
         }
 
         if (!argumentosValidos) {
@@ -67,8 +74,7 @@ public class InferidorLlamadaFuncion implements InferirTipo<LlamadaFuncion> {
 
         if (claseActual != null && claseActual.tieneMetodo(nombre)) {
             nodoLlamada.setMetodoDeClase(true);
-            MetodoRecord firma = Tipos.resolverSobrecarga(
-                    claseActual.firmasDe(nombre), tiposArgumentos, analisisContexto);
+            MetodoRecord firma = Tipos.resolverSobrecarga(claseActual.firmasDe(nombre), tiposArgumentos, analisisContexto);
 
             if (firma == null) {
                 analisisContexto.reportarError(linea, columna,

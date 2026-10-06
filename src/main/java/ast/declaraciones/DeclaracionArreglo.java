@@ -149,7 +149,7 @@ public class DeclaracionArreglo extends Declaracion {
                         if (campo.anchoDeclarado() > 1) {
 
                             String arregloCampo =
-                                    contexto.nuevoTemporal();
+                                    contexto.nuevoTemporal(TipoDato.ENTERO);
 
                             contexto.agregar(
                                     "new_array",

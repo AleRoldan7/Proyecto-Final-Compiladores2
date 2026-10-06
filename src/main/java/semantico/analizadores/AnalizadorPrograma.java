@@ -18,7 +18,6 @@ public class AnalizadorPrograma implements AnalizadorSemantico<Programa> {
     @Override
     public void analizar(Programa programa, AnalisisContexto contexto) {
 
-        // PASADA 1: estructuras y clases
         if (programa.getEstructuras() != null) {
             for (Estructura estructura : programa.getEstructuras()) {
                 contexto.exigir(contexto.getDialecto().permiteDefinirEstructuras(),
@@ -37,7 +36,6 @@ public class AnalizadorPrograma implements AnalizadorSemantico<Programa> {
             }
         }
 
-        // FIX: PASADA 2 - variables globales ANTES que las funciones
         if (programa.getDeclaraciones() != null) {
             for (Declaracion declaracion : programa.getDeclaraciones()) {
                 contexto.exigir(contexto.getDialecto().permiteVariablesGlobales(),
@@ -47,7 +45,6 @@ public class AnalizadorPrograma implements AnalizadorSemantico<Programa> {
             }
         }
 
-        // PASADA 3: funciones (incluye main)
         if (programa.getFunciones() != null) {
             for (DeclaracionFuncion funcion : programa.getFunciones()) {
                 coordinador.analizar(funcion, contexto);

@@ -24,10 +24,18 @@ public class ContextoC3D {
     private final Map<String, Map<String, TipoDato>> tiposAtributo = new HashMap<>();
     private final Map<String, List<Integer>> tamaniosArreglo = new HashMap<>();
 
-    // ---------- Temporales y etiquetas ----------
-    public String nuevoTemporal() {
-        return "t" + contadorTemporales++;
+    private final Map<String, TipoDato> tipoVariables = new HashMap<>();
+    private final Map<String, TipoDato> tipoTemporales = new HashMap<>();
+
+    public String nuevoTemporal(TipoDato tipoTemporal) {
+        String temporal = "t" + contadorTemporales++;
+        tipoTemporales.put(temporal, tipoTemporal);
+        return temporal;
     }
+    public TipoDato getTipoTemporal(String temporal) {
+        return tipoTemporales.getOrDefault(temporal, TipoDato.DESCONOCIDO);
+    }
+
     public String nuevaEtiqueta() {
         return "L" + contadorEtiquetas++;
     }
@@ -67,13 +75,13 @@ public class ContextoC3D {
     }
 
     public String unaria(String operador, String operando, TipoDato tipo) {
-        String temporal = nuevoTemporal();
+        String temporal = nuevoTemporal(tipo);
         cuartetas.add(new Cuarteta(operador, operando, null, temporal, tipo));
         return temporal;
     }
 
     public String binaria(String operador, String izquierda, String derecha, TipoDato tipo) {
-        String temporal = nuevoTemporal();
+        String temporal = nuevoTemporal(tipo);
         cuartetas.add(new Cuarteta(operador, izquierda, derecha, temporal, tipo));
         return temporal;
     }
@@ -213,11 +221,6 @@ public class ContextoC3D {
     }
 
     private final Set<String> locales = new HashSet<>();
-
-
-    public void declararLocal(String nombre) {
-        locales.add(nombre);
-    }
 
     public boolean esLocal(String nombre) {
         return locales.contains(nombre);
@@ -414,5 +417,13 @@ public class ContextoC3D {
 
     public String tipoBaseDeArreglo(String nombreVariable) {
         return tipoBaseArreglo.get(nombreVariable);
+    }
+
+    public void registrarVariable(String nombre, TipoDato dato) {
+        tipoVariables.put(nombre, dato);
+    }
+
+    public TipoDato tipoDeVariable(String nombre) {
+        return tipoVariables.getOrDefault(nombre, TipoDato.DESCONOCIDO);
     }
 }

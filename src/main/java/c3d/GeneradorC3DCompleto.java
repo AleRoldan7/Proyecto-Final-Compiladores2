@@ -2,15 +2,18 @@ package c3d;
 
 
 import ast.NodoAST;
+import lombok.Getter;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+@Getter
 public class GeneradorC3DCompleto {
 
     public record ArchivoFuente(String nombre, NodoAST raiz, boolean principal) {}
+    private static ContextoC3D ultimoContexto;
 
     public GeneradorC3DCompleto() {
     }
@@ -18,6 +21,7 @@ public class GeneradorC3DCompleto {
     public static List<Cuarteta> generar(List<ArchivoFuente> archivos) {
 
         ContextoC3D ctx = new ContextoC3D();
+        ultimoContexto = ctx;
 
         for (ArchivoFuente archivo : archivos) {
             if (archivo.raiz() instanceof ast.Programa programa && programa.getClases() != null) {
@@ -61,6 +65,10 @@ public class GeneradorC3DCompleto {
     public static void exportar(Path carpeta, String nombreBase, List<Cuarteta> cuartetas) throws IOException {
         Files.createDirectories(carpeta);
         Files.writeString(carpeta.resolve(nombreBase + ".c3d"), comoTexto(cuartetas));
-        Files.writeString(carpeta.resolve(nombreBase + ".c"), GenerarCodigoC.traducir(cuartetas));
+        Files.writeString(carpeta.resolve(nombreBase + ".c"), GenerarCodigoC.traducir(cuartetas, ultimoContexto.getTipoTemporales()));
+    }
+
+    public static ContextoC3D getUltimoContexto() {
+        return ultimoContexto;
     }
 }

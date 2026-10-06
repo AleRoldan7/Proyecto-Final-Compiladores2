@@ -72,9 +72,6 @@ public class CompiladorProyecto {
         }
     }
 
-    /* =========================================================
-       FASE 2: Zetariano en dos pasadas
-       ========================================================= */
 
     private void compilarZ(
             Map<TipoArchivo, List<File>> archivosPorTipo,
@@ -90,7 +87,6 @@ public class CompiladorProyecto {
             System.out.println("  - " + f.getName());
         }
 
-        // ────────── PASADA 1: parsear todos los .z ──────────
         List<RegistroZ> registros = new ArrayList<>();
 
         for (File archivo : archivos) {
@@ -116,7 +112,6 @@ public class CompiladorProyecto {
             }
         }
 
-        // ────────── PASADA 2: registrar firmas ──────────
         AnalizadorSemanticoCoordinador coordinador = new AnalizadorSemanticoCoordinador(
                 new InferirTipoCoordinador());
 
@@ -133,7 +128,6 @@ public class CompiladorProyecto {
             }
         }
 
-        // ────────── PASADA 3: importar firmas entre contextos ──────────
         for (RegistroZ reg : registros) {
             for (RegistroZ otro : registros) {
                 if (otro != reg) {
@@ -144,12 +138,10 @@ public class CompiladorProyecto {
                 }
             }
 
-            // Ver qué tipos tiene cada contexto después de importar
             System.out.println("[PASADA 3] Contexto " + reg.archivo.getName() +
                     " tiene tipos: " + reg.contexto.getTablaTipos().listarNombres());
         }
 
-        // ────────── PASADA 4: analizar cada .z ──────────
         for (RegistroZ reg : registros) {
             if (reg.ast == null) continue;
             System.out.println("[PASADA 4] Analizando: " + reg.archivo.getName());
@@ -160,7 +152,6 @@ public class CompiladorProyecto {
     private void registrarFirmaClase(NodoAST ast, AnalisisContexto contexto) {
         if (ast == null) return;
 
-        // Asume que el AST es un Programa con una lista de clases
         if (ast instanceof ast.Programa programa) {
             for (ast.clases.Clase clase : programa.getClases()) {
 
@@ -168,9 +159,6 @@ public class CompiladorProyecto {
         }
     }
 
-    /* =========================================================
-       FASE 3: Pig Latin sin semántica
-       ========================================================= */
 
     private void compilarPigSinSemantica(
             Map<TipoArchivo, List<File>> archivosPorTipo,
@@ -198,10 +186,6 @@ public class CompiladorProyecto {
             }
         }
     }
-
-    /* =========================================================
-       FASE 4: resolver imports de Pig Latin
-       ========================================================= */
 
     private void resolverImportsPig(
             Map<TipoArchivo, List<File>> archivosPorTipo,
@@ -241,9 +225,6 @@ public class CompiladorProyecto {
         }
     }
 
-    /* =========================================================
-       FASE 5: analizar Pig Latin con imports
-       ========================================================= */
 
     private void analizarPigConImports(
             Map<TipoArchivo, List<File>> archivosPorTipo,
@@ -262,10 +243,6 @@ public class CompiladorProyecto {
             compiladorArchivo.analizarSemanticamente(astPig, ctxPig);
         }
     }
-
-    /* =========================================================
-       HELPERS
-       ========================================================= */
 
     private static final Pattern PATRON_IMPORT = Pattern.compile(
             "import\\s+([\\w./]+\\.(z|y))\\s*;?",

@@ -1,6 +1,7 @@
 package ast.expresiones;
 
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,8 +14,8 @@ public class LlamadaMetodo extends Expresion {
     private Expresion objeto;
     private String metodo;
     private List<Expresion> argumentos;
+    private TipoDato tipoResultado;
 
-    /** Nombre de la clase del receptor, llenado por InferidorLlamadaMetodo durante el análisis semántico. */
     private String claseReceptor;
 
     public LlamadaMetodo(int linea, int columna, Expresion objeto, String metodo, List<Expresion> argumentos) {
@@ -37,7 +38,7 @@ public class LlamadaMetodo extends Expresion {
             }
         }
 
-        String temporal = contexto.nuevoTemporal();
+        String temporal = contexto.nuevoTemporal(tipoResultado);
         int cantidadArgs = ((argumentos == null) ? 0 : argumentos.size()) + 1;
 
         String nombreFuncion = (claseReceptor != null)

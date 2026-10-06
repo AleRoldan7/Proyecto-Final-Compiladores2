@@ -73,8 +73,11 @@ public class AccesoArreglo extends Expresion {
             return contexto.binaria("+", arr, offset, TipoDato.ESTRUCTURA);
         }
 
-        String temporal = contexto.nuevoTemporal();
-        contexto.agregar("index_get", arr, offset, temporal);
+        TipoDato tipoDato = convertirTipo(tipoBase);
+
+        String temporal = contexto.nuevoTemporal(tipoDato);
+
+        contexto.agregar("index_get", arr, offset, temporal, tipoDato);
         return temporal;
     }
 
@@ -120,5 +123,33 @@ public class AccesoArreglo extends Expresion {
         }
 
         return acumulado;
+    }
+
+    private TipoDato convertirTipo(String tipoBase) {
+
+        if (tipoBase == null) {
+            return TipoDato.DESCONOCIDO;
+        }
+
+        return switch (tipoBase.toLowerCase()) {
+
+            case "entero", "int" ->
+                    TipoDato.ENTERO;
+
+            case "flotante", "decimal", "double" ->
+                    TipoDato.DECIMAL;
+
+            case "cadena", "texto", "string" ->
+                    TipoDato.TEXTO;
+
+            case "caracter", "char" ->
+                    TipoDato.CARACTER;
+
+            case "booleano", "boolean" ->
+                    TipoDato.BOOLEANO;
+
+            default ->
+                    TipoDato.ESTRUCTURA;
+        };
     }
 }

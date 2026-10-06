@@ -40,7 +40,7 @@ public class ExpresionUnaria extends Expresion {
 
                 String valorAnterior = null;
                 if (!esPrefijo) {
-                    valorAnterior = contexto.nuevoTemporal();
+                    valorAnterior = contexto.nuevoTemporal(TipoDato.ENTERO);
                     contexto.asignar(valorAnterior, operando);
                 }
 

@@ -11,10 +11,7 @@ import tablas.InformeTipo;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Registra una estructura de Y? en la TablaTipos compartida, para que
- * después Pig Latin pueda importarla y usarla.
- */
+
 public class AnalizadorEstructura implements AnalizadorSemantico<Estructura> {
 
     @Override
@@ -29,10 +26,6 @@ public class AnalizadorEstructura implements AnalizadorSemantico<Estructura> {
 
         InformeTipo informe = new InformeTipo(estructura.getNombre(), TipoDato.ESTRUCTURA);
 
-        /*
-         * Se registra ANTES de validar los campos para permitir que una
-         * estructura se referencie a sí misma por referencia.
-         */
         contexto.getTablaTipos().registrar(informe);
 
         Set<String> vistos = new HashSet<>();
@@ -51,7 +44,6 @@ public class AnalizadorEstructura implements AnalizadorSemantico<Estructura> {
                 continue;
             }
 
-            // El tipo del campo debe ser primitivo del dialecto, o un tipo ya definido.
             if (Tipos.canonico(campo.getTipo(), contexto) == null) {
 
                 contexto.reportarError(campo.getLinea(), campo.getColumna(),

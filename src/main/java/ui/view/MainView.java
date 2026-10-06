@@ -575,8 +575,19 @@ public class MainView extends BorderPane {
 
             GeneradorC3DCompleto.exportar(carpetaSalida, nombreBase, cuartetas);
 
-            mostrarVista(crearVistaC3D(GeneradorC3DCompleto.comoTexto(cuartetas), GenerarCodigoC.traducir(cuartetas)));
+            //mostrarVista(crearVistaC3D(GeneradorC3DCompleto.comoTexto(cuartetas), GenerarCodigoC.traducir(cuartetas, GeneradorC3DCompleto)));
 
+            mostrarVista(
+                    crearVistaC3D(
+                            GeneradorC3DCompleto.comoTexto(cuartetas),
+                            GenerarCodigoC.traducir(
+                                    cuartetas,
+                                    GeneradorC3DCompleto
+                                            .getUltimoContexto()
+                                            .getTipoTemporales()
+                            )
+                    )
+            );
             mostrarEstado("C3D generado en la carpeta salida/", EXITO);
 
         } catch (Exception ex) {

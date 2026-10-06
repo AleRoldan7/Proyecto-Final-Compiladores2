@@ -42,17 +42,16 @@ public class InferidorInicializacionEstructura implements InferirTipo<Inicializa
             Tipo tipoValor = inferirTipoCoordinador.inferir(valores.get(i), contexto);
 
             if (tipoValor == null) {
-                continue;   // el error ya se reportó al inferir ese valor
+                continue;
             }
 
             String nombreCampo = ordenCampos.get(i);
             Tipo tipoCampo = tipoEstructura.tipoDeAtributo(nombreCampo);
 
+
             if (!Tipos.asignable(tipoCampo, tipoValor, contexto)) {
-                contexto.reportarError(nodo.getLinea(), nodo.getColumna(),
-                        "El campo '" + nombreCampo + "' de '" + nodo.getNombreTipo() + "' espera "
-                                + Tipos.describir(tipoCampo, contexto) + " y se recibió "
-                                + Tipos.describir(tipoValor, contexto));
+                contexto.reportarError(nodo.getLinea(), nodo.getColumna(), "El campo '" + nombreCampo + "' de '" + nodo.getNombreTipo() + "' espera "
+                        + Tipos.describir(tipoCampo, contexto) + " y se recibió " + Tipos.describir(tipoValor, contexto));
             }
         }
 

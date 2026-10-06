@@ -2,6 +2,7 @@ package ast.expresiones;
 
 import ast.sentencias.CondicionIf;
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,6 +13,7 @@ public class ExpresionTernaria extends Expresion {
     private Expresion condicionTernaria;
     private Expresion verdaderoTernaria;
     private Expresion falsoTernaria;
+    private TipoDato tipoResultado;
 
     public ExpresionTernaria(int linea, int columna, Expresion condicionTernaria, Expresion verdaderoTernaria, Expresion falsoTernaria) {
         super(linea, columna);
@@ -26,7 +28,7 @@ public class ExpresionTernaria extends Expresion {
         String etqF = contexto.nuevaEtiqueta();
         String etqFin = contexto.nuevaEtiqueta();
 
-        String temp = contexto.nuevoTemporal();
+        String temp = contexto.nuevoTemporal(tipoResultado);
 
         // Evaluar la condición
         CondicionIf.generarCondicion(condicionTernaria, contexto, etqV, etqF);

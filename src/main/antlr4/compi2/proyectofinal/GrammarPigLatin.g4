@@ -2,14 +2,14 @@ grammar GrammarPigLatin;
 
 /*GRAMATICA*/
 program:
-    seccionImport+
+    seccionImport*
     seccionVariables?
     seccionMain
     EOF
     ;
 
 seccionImport:
-    IMPORT ID (PUNTO ID)* PUNTO ID PUNTO_COMA?
+    IMPORT ID (PUNTO ID)* PUNTO ID
     ;
 
 seccionVariables:

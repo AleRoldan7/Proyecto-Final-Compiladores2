@@ -4,6 +4,7 @@ import c3d.ContextoC3D;
 import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
+import org.fxmisc.richtext.model.TextOps;
 
 @Getter
 @Setter
@@ -26,7 +27,10 @@ public class Identificador extends Expresion {
         }
 
         if (!contexto.esLocal(nombre) && contexto.esAtributo(nombre)) {
-            String temporal = contexto.nuevoTemporal();
+
+            TipoDato tipoDato = contexto.tipoDeAtributo(contexto.getClaseActual(), nombre);
+
+            String temporal = contexto.nuevoTemporal(tipoDato);
             TipoDato tipo = contexto.tipoDeAtributo(contexto.getClaseActual(), nombre);
             contexto.agregar("attr_get", "self",
                     String.valueOf(contexto.desplazamiento(contexto.getClaseActual(), nombre)), temporal, tipo);
