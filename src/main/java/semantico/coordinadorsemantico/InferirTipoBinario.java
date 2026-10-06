@@ -70,16 +70,41 @@ public class InferirTipoBinario implements InferirTipo<ExpresionBinaria> {
     }
 
 
-    private Tipo inferirRelacional(ExpresionBinaria nodoBinario, Tipo izquierdo, Tipo derecho, String operador, AnalisisContexto analisisContexto) {
+    private Tipo inferirRelacional(
+            ExpresionBinaria nodoBinario,
+            Tipo izquierdo,
+            Tipo derecho,
+            String operador,
+            AnalisisContexto analisisContexto) {
 
-        if (!Tipos.esNumerico(izquierdo, analisisContexto) || !Tipos.esNumerico(derecho,   analisisContexto)) {
+        boolean ambosNumericos =
+                Tipos.esNumerico(izquierdo, analisisContexto)
+                        && Tipos.esNumerico(derecho, analisisContexto);
 
-            error(nodoBinario, analisisContexto, operador, izquierdo, derecho, "operandos numéricos");
+        boolean ambosCaracteres =
+                esCaracter(izquierdo, analisisContexto)
+                        && esCaracter(derecho, analisisContexto);
+
+        if (!ambosNumericos && !ambosCaracteres) {
+
+            error(
+                    nodoBinario,
+                    analisisContexto,
+                    operador,
+                    izquierdo,
+                    derecho,
+                    "operandos numéricos o caracteres compatibles"
+            );
+
             return null;
         }
 
-        return Tipos.simple(nodoBinario.getLinea(), nodoBinario.getColumna(), analisisContexto.getDialecto().nombrarTipo(TipoDato.BOOLEANO));
-
+        return Tipos.simple(
+                nodoBinario.getLinea(),
+                nodoBinario.getColumna(),
+                analisisContexto.getDialecto()
+                        .nombrarTipo(TipoDato.BOOLEANO)
+        );
     }
 
     private Tipo inferirIgualdad(ExpresionBinaria nodoBinario, Tipo izquierdo, Tipo derecho, String operador, AnalisisContexto analisisContexto) {
@@ -105,6 +130,15 @@ public class InferirTipoBinario implements InferirTipo<ExpresionBinaria> {
 
     private boolean esString(Tipo tipo) {
         return tipo != null && Tipos.STRING.equals(tipo.getNombre());
+    }
+
+    private boolean esCaracter(
+            Tipo tipo,
+            AnalisisContexto analisisContexto) {
+
+        return tipo != null
+                && Tipos.canonico(tipo, analisisContexto)
+                == TipoDato.CARACTER;
     }
 
     private void error(ExpresionBinaria nodoBinario, AnalisisContexto analisisContexto, String operador, Tipo izquierdo, Tipo derecho, String requisito) {
