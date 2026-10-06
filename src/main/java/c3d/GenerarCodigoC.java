@@ -32,11 +32,10 @@ public class GenerarCodigoC {
     public static String traducir(List<Cuarteta> cuartetas, Map<String, TipoDato> tiposTemporales) {
 
         Map<String, Funcion> funciones = new LinkedHashMap<>();
-        Map<String, List<Funcion>> porBase = new HashMap<>();
+        Map<String, List<Funcion>> porBase = new LinkedHashMap<>();
         List<Cuarteta> sueltas = new ArrayList<>();
         Funcion actual = null;
         Map<String, TipoDato> tipos = new HashMap<>();
-
         for (Cuarteta q : cuartetas) {
 
             String op = q.getOperador();
@@ -109,30 +108,10 @@ public class GenerarCodigoC {
             main.cuerpo.addAll(0, inicializacion);
         }
 
+        Map<String, TipoDato> tiposRetorno =
+                inferirTiposYRetornos(cuartetas, funciones, nombreCompleto, porBase);
+
         Set<String> temporales = new TreeSet<>();
-
-        for (Funcion f : funciones.values()) {
-
-            for (String parametro : f.parametros) {
-
-                int espacio = parametro.indexOf(' ');
-
-                if (espacio <= 0) {
-                    continue;
-                }
-
-                String tipoTexto = parametro.substring(0, espacio);
-                String nombre = parametro.substring(espacio + 1);
-
-                TipoDato tipo = tipoDesdeC(tipoTexto);
-
-                tipos.put(nombre, tipo);
-            }
-        }
-
-
-        Map<String, TipoDato> tiposRetorno = inferirTiposYRetornos(cuartetas, funciones, nombreCompleto, porBase);
-
 
         for (Funcion f : funciones.values()) {
 
@@ -143,9 +122,7 @@ public class GenerarCodigoC {
                 int espacio = parametro.indexOf(' ');
 
                 if (espacio > 0) {
-                    parametrosLocales.add(
-                            parametro.substring(espacio + 1)
-                    );
+                    parametrosLocales.add(parametro.substring(espacio + 1));
                 }
             }
 
@@ -159,11 +136,11 @@ public class GenerarCodigoC {
                 );
             }
         }
+
         StringBuilder sb = new StringBuilder();
         emitIncludes(sb);
         emitHeapGlobals(sb);
         emitRuntimeHelpers(sb);
-
 
         sb.append("\n// ==== TEMPORALES ====\n");
         for (String t : temporales) {
@@ -171,11 +148,10 @@ public class GenerarCodigoC {
             if (tipoT == null || tipoT == TipoDato.DESCONOCIDO) {
                 tipoT = TipoDato.ENTERO;
             }
-            System.out.println("TEMPORALES: " + t + "Tipos: " + tiposRetorno.get(t));
-            sb.append(tipoT.aTipoC()).append(" ").append(t).append(";\n");
+            sb.append(tipoC(tipoT)).append(" ").append(t).append(";\n");
         }
 
-        sb.append("\n// ====  DECLRACIONES ====\n");
+        sb.append("\n// ====  DECLARACIONES ====\n");
         for (Funcion f : funciones.values()) {
             sb.append(f.firma()).append(";\n");
         }
@@ -184,6 +160,21 @@ public class GenerarCodigoC {
         for (Funcion f : funciones.values()) {
 
             sb.append(f.firma()).append(" {\n");
+
+            // Tipos de ESTA función: los globales más sus parámetros
+            Map<String, TipoDato> tiposFuncion = new HashMap<>(tiposRetorno);
+
+            for (String parametro : f.parametros) {
+
+                int espacio = parametro.indexOf(' ');
+
+                if (espacio > 0) {
+                    tiposFuncion.put(
+                            parametro.substring(espacio + 1),
+                            tipoDesdeC(parametro.substring(0, espacio))
+                    );
+                }
+            }
 
             for (String variable : f.variablesLocales) {
 
@@ -195,7 +186,7 @@ public class GenerarCodigoC {
                 }
 
                 sb.append("    ")
-                        .append(tipoVariable.aTipoC())
+                        .append(tipoC(tipoVariable))
                         .append(" ")
                         .append(variable)
                         .append(";\n");
@@ -210,7 +201,7 @@ public class GenerarCodigoC {
                         pendientes,
                         funciones,
                         f.tipoRetorno,
-                        tiposRetorno,
+                        tiposFuncion,
                         nombreCompleto,
                         porBase
                 );
@@ -372,8 +363,7 @@ public class GenerarCodigoC {
                 List<String> argumentosLlamada = List.of();
 
                 if ("call".equals(op)) {
-                    argumentosLlamada = new ArrayList<>(argsPendientes);
-                    argsPendientes.clear();
+                    argumentosLlamada = extraerArgumentos(argsPendientes, q.getArg2());
                 }
 
                 // ---------------------------------------------------------
@@ -539,14 +529,8 @@ public class GenerarCodigoC {
                             break;
                         }
 
-                        String nombreReal =
-                                nombreCompleto.getOrDefault(
-                                        q.getArg1(),
-                                        q.getArg1()
-                                );
-
                         Funcion destino = resolverSobrecarga(
-                                nombreReal, argumentosLlamada, porBase, tipos);
+                                q.getArg1(), argumentosLlamada, porBase, tipos);
 
                         TipoDato tipoRetorno = destino != null
                                 ? retornosFuncion.get(destino.nombre)
@@ -727,11 +711,10 @@ public class GenerarCodigoC {
             }
 
             case "call" -> {
-                String nombreReal = nombreCompleto.getOrDefault(a1, a1);
-                Funcion destino = resolverSobrecarga(nombreReal, pendientes, porBase, tipos);
-                String nombreC = destino != null ? destino.nombreC() : nombreReal;
-                String llamada = nombreC + "(" + String.join(", ", pendientes) + ")";
-                pendientes.clear();
+                List<String> args = extraerArgumentos(pendientes, a2);
+                Funcion destino = resolverSobrecarga(a1, args, porBase, tipos);
+                String nombreC = destino != null ? destino.nombreC() : a1;
+                String llamada = nombreC + "(" + String.join(", ", args) + ")";
                 boolean descartar = (res == null) || destino == null || destino.tipoRetorno == TipoDato.VOID;
                 yield (descartar ? llamada : res + " = " + llamada) + ";";
             }
@@ -921,16 +904,27 @@ public class GenerarCodigoC {
     }
 
     /**
-     * Elige la versión correcta de una función sobrecargada:
-     * primero por cantidad de argumentos, luego por compatibilidad de tipos.
+     * Candidatas: nombre exacto (func_X) o método de cualquier clase (Clase_X).
+     * Se elige por cantidad de argumentos y luego por compatibilidad de tipos.
      */
     private static Funcion resolverSobrecarga(String nombre, List<String> args,
                                               Map<String, List<Funcion>> porBase,
                                               Map<String, TipoDato> tipos) {
 
-        List<Funcion> candidatas = porBase.get(nombre);
+        List<Funcion> candidatas = new ArrayList<>();
 
-        if (candidatas == null || candidatas.isEmpty()) {
+        List<Funcion> exactas = porBase.get(nombre);
+        if (exactas != null) {
+            candidatas.addAll(exactas);
+        }
+
+        for (Map.Entry<String, List<Funcion>> e : porBase.entrySet()) {
+            if (e.getKey().endsWith("_" + nombre)) {
+                candidatas.addAll(e.getValue());
+            }
+        }
+
+        if (candidatas.isEmpty()) {
             return null;
         }
 
@@ -957,6 +951,25 @@ public class GenerarCodigoC {
 
         // Sin coincidencia de aridad: se devuelve la primera para que gcc reporte el error real
         return mejor != null ? mejor : candidatas.get(0);
+    }
+
+    /**
+     * Saca de "pendientes" solo los ÚLTIMOS N argumentos (N = conteo de la
+     * cuarteta call). Los anteriores pertenecen a una llamada externa.
+     */
+    private static List<String> extraerArgumentos(List<String> pendientes, String conteo) {
+
+        int n = pendientes.size();
+
+        if (conteo != null && conteo.matches("\\d+")) {
+            n = Math.min(Integer.parseInt(conteo), pendientes.size());
+        }
+
+        List<String> tramo = pendientes.subList(pendientes.size() - n, pendientes.size());
+        List<String> args = new ArrayList<>(tramo);
+        tramo.clear();
+
+        return args;
     }
 
     private static int compatibilidad(String parametro, String arg, Map<String, TipoDato> tipos) {
@@ -1002,5 +1015,12 @@ public class GenerarCodigoC {
             return v.substring(1, v.length() - 1);
         }
         return v;
+    }
+
+    private static String tipoC(TipoDato tipo) {
+        if (tipo == TipoDato.OBJETO || tipo == TipoDato.ESTRUCTURA) {
+            return "uintptr_t";
+        }
+        return tipo.aTipoC();
     }
 }
