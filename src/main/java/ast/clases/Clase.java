@@ -2,6 +2,7 @@ package ast.clases;
 
 import ast.NodoAST;
 import c3d.ContextoC3D;
+import c3d.ConversorTipos;
 import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,6 +29,77 @@ public class Clase extends NodoAST {
     }
 
 
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+        contexto.setClaseActual(nombreClase);
+        try {
+            if (metodos != null) {
+                for (Metodo m : metodos) m.generarC3D(contexto);
+            }
+            if (constructores == null || constructores.isEmpty()) {
+                generarConstructorPorDefecto(contexto);
+            } else {
+                for (Constructor c : constructores) c.generarC3D(contexto);
+            }
+        } finally {
+            contexto.setClaseActual(null);
+        }
+        return null;
+    }
+
+
+    public void registrarDisposicion(ContextoC3D contexto) {
+
+        List<String> nombres = new ArrayList<>();
+        List<TipoDato> tipos = new ArrayList<>();
+
+        for (var atributo : atributos) {
+            nombres.add(atributo.getNombreAtributo());
+            tipos.add(ConversorTipos.aTipoDato(atributo.getTipo()));
+        }
+        contexto.registrarClase(nombreClase, nombres, tipos);
+
+        // Siempre se genera un constructor (explícito o por defecto)
+        contexto.registrarFuncion(ContextoC3D.nombreConstructor(nombreClase));
+
+        // Métodos de la clase: nombre + aridad (self cuenta como argumento)
+        if (metodos != null) {
+            for (Metodo m : metodos) {
+                int aridad = (m.getParametros() == null ? 0 : m.getParametros().size()) + 1;
+                contexto.registrarMetodo(nombreClase, m.getNombreMetodo(), aridad);
+                contexto.registrarRetorno(
+                        ContextoC3D.nombreFuncion(nombreClase, m.getNombreMetodo()),
+                        aridad,
+                        ConversorTipos.aTipoDato(m.getTipoRetorno()));
+            }
+        }
+    }
+
+    private static TipoDato convertirTipoDatoDesdeNombre(String nombreTipo) {
+        if (nombreTipo == null) {
+            return TipoDato.DESCONOCIDO;
+        }
+
+        return switch (nombreTipo.toLowerCase()) {
+            case "entero", "int" -> TipoDato.ENTERO;
+            case "decimal", "double", "float" -> TipoDato.DECIMAL;
+            case "texto", "string", "cadena" -> TipoDato.TEXTO;
+            case "caracter", "char" -> TipoDato.CARACTER;
+            case "booleano", "bool", "boolean" -> TipoDato.BOOLEANO;
+            case "void" -> TipoDato.VOID;
+            default -> TipoDato.OBJETO;
+        };
+    }
+
+    private void generarConstructorPorDefecto(ContextoC3D contexto) {
+
+        String nombreFuncion = ContextoC3D.nombreConstructor(nombreClase);
+
+        // Solo recibe "self"; el cuerpo está vacío y el retorno es caer en end_
+        contexto.abrirFuncion(nombreFuncion, List.of("self"), List.of(TipoDato.OBJETO));
+        contexto.cerrarFuncion(nombreFuncion);
+    }
+    /*
     @Override
     public String generarC3D(ContextoC3D contexto) {
         contexto.setClaseActual(nombreClase);
@@ -88,4 +160,5 @@ public class Clase extends NodoAST {
         contexto.agregar("return", null, null, null);
         contexto.agregarEtiqueta("end_" + nombreFuncion);
     }
+     */
 }

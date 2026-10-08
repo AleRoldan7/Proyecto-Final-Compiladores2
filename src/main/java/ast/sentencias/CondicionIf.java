@@ -32,7 +32,7 @@ public class CondicionIf extends NodoAST implements Sentencia {
 
         String etiquetaFin = contexto.nuevaEtiqueta();
 
-        generarRama(contexto, getCondicion(), getBloqueEntonces(), etiquetaFin);            // ADAPTA los getters
+        generarRama(contexto, getCondicion(), getBloqueEntonces(), etiquetaFin);
 
         if (getListaSiNoSi() != null) {
             for (CondicionIf rama : getListaSiNoSi()) {

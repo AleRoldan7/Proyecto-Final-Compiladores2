@@ -20,6 +20,20 @@ public class SentenciaReturn extends NodoAST implements Sentencia {
     @Override
     public String generarC3D(ContextoC3D contexto) {
 
+        String valor = (expresionReturn != null)
+                ? expresionReturn.generarC3D(contexto)
+                : null;
+
+        // retval = valor; goto end_<funcion>
+        contexto.retornar(valor);
+
+        return null;
+    }
+
+    /*
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+
         if (expresionReturn != null) {
             String valor = expresionReturn.generarC3D(contexto);
             contexto.agregar("return", valor, null, null);
@@ -29,4 +43,5 @@ public class SentenciaReturn extends NodoAST implements Sentencia {
 
         return null;
     }
+     */
 }

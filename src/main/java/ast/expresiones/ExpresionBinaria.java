@@ -13,7 +13,6 @@ public class ExpresionBinaria extends Expresion {
     private String operacion;
     private Expresion derecha;
 
-    /** Tipo del RESULTADO ya resuelto por el análisis semántico (InferirTipoBinario). */
     private TipoDato tipoResuelto;
 
     public ExpresionBinaria(int linea, int columna, Expresion izquierda, String operacion, Expresion derecha) {
@@ -34,7 +33,6 @@ public class ExpresionBinaria extends Expresion {
         return contexto.binaria(operacion, izq, der, tipo);
     }
 
-    /** Solo por si algún ExpresionBinaria se genera sin haber pasado análisis semántico. */
     private TipoDato inferirTipoRespaldo(String izq, String der) {
 
         if (esRelacional(operacion) || esLogico(operacion)) {

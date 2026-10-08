@@ -5,9 +5,12 @@ import ast.sentencias.Sentencia;
 import ast.sentencias.SentenciaReturn;
 import ast.tipos.Tipo;
 import c3d.ContextoC3D;
+import c3d.ConversorTipos;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -27,6 +30,48 @@ public class DeclaracionFuncion extends Declaracion {
         this.cuerpoFuncion = cuerpoFuncion;
     }
 
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+
+        List<String> nombres = new ArrayList<>();
+        List<TipoDato> tiposParametros = new ArrayList<>();
+
+        if (parametros != null) {
+            for (Parametro p : parametros) {
+                nombres.add(p.getNombreParametro());
+                tiposParametros.add(ConversorTipos.aTipoDato(p.getTipoParametro().getNombre(), p.isArreglo()));
+            }
+        }
+
+        contexto.abrirFuncion(nombreFuncion, nombres, tiposParametros);
+
+        if (parametros != null) {
+            for (Parametro p : parametros) {
+
+                String nombreTipo = p.getTipoParametro().getNombre();
+                boolean esArreglo = p.isArreglo()
+                        || (nombreTipo != null && nombreTipo.contains("["));
+
+                if (esArreglo) {
+                    String tipoElemento = nombreTipo;
+                    if (tipoElemento != null && tipoElemento.contains("[")) {
+                        tipoElemento = tipoElemento.substring(0, tipoElemento.indexOf("["));
+                    }
+                    contexto.registrarTipoBaseArreglo(p.getNombreParametro(), tipoElemento);
+                }
+            }
+        }
+
+        if (cuerpoFuncion != null) {
+            cuerpoFuncion.generarC3D(contexto);
+        }
+
+        contexto.cerrarFuncion(nombreFuncion);
+
+        return null;
+    }
+
+    /*
     @Override
     public String generarC3D(ContextoC3D contexto) {
 
@@ -90,4 +135,5 @@ public class DeclaracionFuncion extends Declaracion {
         }
         return false;
     }
+     */
 }

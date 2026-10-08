@@ -7,9 +7,12 @@ import ast.sentencias.Sentencia;
 import ast.sentencias.SentenciaReturn;
 import ast.tipos.Tipo;
 import c3d.ContextoC3D;
+import c3d.ConversorTipos;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -29,6 +32,38 @@ public class Metodo extends NodoAST {
         this.cuerpoMetodo = cuerpoMetodo;
     }
 
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+
+        String clase = contexto.getClaseActual();
+        String nombreFuncion = ContextoC3D.nombreFuncion(clase, nombreMetodo);   // Pila_apilar
+
+        List<String> nombres = new ArrayList<>();
+        List<TipoDato> tiposParametros = new ArrayList<>();
+
+        nombres.add("self");
+        tiposParametros.add(TipoDato.OBJETO);
+
+        if (parametros != null) {
+            for (Parametro p : parametros) {
+                nombres.add(p.getNombreParametro());
+                tiposParametros.add(ConversorTipos.aTipoDato(p.getTipoParametro().getNombre(), p.isArreglo()));
+            }
+        }
+
+        contexto.abrirFuncion(nombreFuncion, nombres, tiposParametros);
+
+        if (cuerpoMetodo != null) {
+            cuerpoMetodo.generarC3D(contexto);
+        }
+
+        // Si es void y no hay return, el flujo cae en end_ (retorno implícito)
+        contexto.cerrarFuncion(nombreFuncion);
+
+        return null;
+    }
+
+    /*
     @Override
     public String generarC3D(ContextoC3D contexto) {
 
@@ -87,4 +122,5 @@ public class Metodo extends NodoAST {
         }
         return false;
     }
+     */
 }

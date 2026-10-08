@@ -1,228 +1,49 @@
 package c3d;
 
-import ast.tipos.Tipo;
 import enums.TipoDato;
+
 import java.util.*;
 
 public class GenerarCodigoC {
 
-    private static class Funcion {
-        final String nombre;   // clave única (incluye sufijo si está sobrecargada)
-        final String base;     // nombre original
-        final List<String> parametros = new ArrayList<>();
-        final List<Cuarteta> cuerpo = new ArrayList<>();
-        final Set<String> variablesLocales = new TreeSet<>();
-        TipoDato tipoRetorno = TipoDato.VOID;
-
-        Funcion(String nombre, String base) {
-            this.nombre = nombre;
-            this.base = base;
-        }
-
-        String nombreC() {
-            return nombre.equals("main") ? "func_main" : nombre;
-        }
-
-        String firma() {
-            return tipoRetorno.aTipoC() + " " + nombreC()
-                    + "(" + (parametros.isEmpty() ? "void" : String.join(", ", parametros)) + ")";
-        }
+    public static String traducir(List<Cuarteta> cuartetas) {
+        return traducir(cuartetas, new HashMap<>());
     }
 
     public static String traducir(List<Cuarteta> cuartetas, Map<String, TipoDato> tiposTemporales) {
 
-        Map<String, Funcion> funciones = new LinkedHashMap<>();
-        Map<String, List<Funcion>> porBase = new LinkedHashMap<>();
-        List<Cuarteta> sueltas = new ArrayList<>();
-        Funcion actual = null;
-        Map<String, TipoDato> tipos = new HashMap<>();
-        for (Cuarteta q : cuartetas) {
+        Map<String, TipoDato> tipos = InferidorTipos.inferir(cuartetas, tiposTemporales);
 
-            String op = q.getOperador();
-            String res = q.getResultado();
-
-            if ("label".equals(op) && res != null && res.startsWith("func_")) {
-
-                String base = res.substring(5);
-
-                // func_X repetida justo al abrir la misma función (el func_main doble): se ignora
-                if (actual != null && actual.base.equals(base)
-                        && actual.cuerpo.isEmpty() && actual.parametros.isEmpty()) {
-                    continue;
-                }
-
-                List<Funcion> existentes = porBase.computeIfAbsent(base, k -> new ArrayList<>());
-                String clave = existentes.isEmpty() ? base : base + "__" + existentes.size();
-
-                actual = new Funcion(clave, base);
-                existentes.add(actual);
-                funciones.put(clave, actual);
-                continue;
-            }
-
-            if ("label".equals(op) && res != null && res.startsWith("end_")) {
-                actual = null;
-                continue;
-            }
-
-            if (actual == null) {
-                sueltas.add(q);
-                continue;
-            }
-
-            if ("param_decl".equals(op)) {
-                String tipo = q.getArg1();
-                String nombre = q.getArg2();
-
-                TipoDato tipoDato = convertirTipo(tipo);
-
-                actual.parametros.add(tipoDato.aTipoC() + " " + nombre);
-                continue;
-            }
-
-            actual.cuerpo.add(q);
-        }
-
-        corregirParametrosReferencia(funciones.values());
-
-        Map<String, String> nombreCompleto = new HashMap<>();
-        for (String nombre : porBase.keySet()) {
-            nombreCompleto.putIfAbsent(nombre, nombre);
-            int idx = nombre.lastIndexOf('_');
-            if (idx > 0 && idx < nombre.length() - 1) {
-                String corto = nombre.substring(idx + 1);
-                nombreCompleto.putIfAbsent(corto, nombre);
-            }
-        }
-
-        Funcion main = funciones.get("main");
-        List<Cuarteta> inicializacion = new ArrayList<>();
-
-        for (Cuarteta q : sueltas) {
-            if (!"halt".equals(q.getOperador()) && !"comment".equals(q.getOperador())) {
-                inicializacion.add(q);
-            }
-        }
-
-        if (main != null) {
-            main.cuerpo.addAll(0, inicializacion);
-        }
-
-        Map<String, TipoDato> tiposRetorno =
-                inferirTiposYRetornos(cuartetas, funciones, nombreCompleto, porBase);
-
+        // Temporales y variables sueltas (todo es global: no hay funciones de C)
         Set<String> temporales = new TreeSet<>();
-
-        for (Funcion f : funciones.values()) {
-
-            Set<String> parametrosLocales = new HashSet<>();
-
-            for (String parametro : f.parametros) {
-
-                int espacio = parametro.indexOf(' ');
-
-                if (espacio > 0) {
-                    parametrosLocales.add(parametro.substring(espacio + 1));
-                }
-            }
-
-            for (Cuarteta q : f.cuerpo) {
-
-                recolectar(
-                        q,
-                        temporales,
-                        f.variablesLocales,
-                        parametrosLocales
-                );
-            }
+        Set<String> variables = new TreeSet<>();
+        for (Cuarteta q : cuartetas) {
+            recolectar(q, temporales, variables);
         }
 
         StringBuilder sb = new StringBuilder();
         emitIncludes(sb);
-        emitHeapGlobals(sb);
+        emitGlobals(sb);
         emitRuntimeHelpers(sb);
 
         sb.append("\n// ==== TEMPORALES ====\n");
         for (String t : temporales) {
-            TipoDato tipoT = tiposRetorno.get(t);
-            if (tipoT == null || tipoT == TipoDato.DESCONOCIDO) {
-                tipoT = TipoDato.ENTERO;
-            }
-            sb.append(tipoC(tipoT)).append(" ").append(t).append(";\n");
+            sb.append(tipoC(tipoDeclaracion(tipos.get(t)))).append(" ").append(t).append(";\n");
         }
 
-        sb.append("\n// ====  DECLARACIONES ====\n");
-        for (Funcion f : funciones.values()) {
-            sb.append(f.firma()).append(";\n");
+        if (!variables.isEmpty()) {
+            sb.append("\n// ==== VARIABLES ====\n");
+            for (String v : variables) {
+                sb.append(tipoC(tipoDeclaracion(tipos.get(v)))).append(" ").append(v).append(";\n");
+            }
         }
 
-        sb.append("\n// ==== FUNCIONES ====\n");
-        for (Funcion f : funciones.values()) {
-
-            sb.append(f.firma()).append(" {\n");
-
-            // Tipos de ESTA función: los globales más sus parámetros
-            Map<String, TipoDato> tiposFuncion = new HashMap<>(tiposRetorno);
-
-            for (String parametro : f.parametros) {
-
-                int espacio = parametro.indexOf(' ');
-
-                if (espacio > 0) {
-                    tiposFuncion.put(
-                            parametro.substring(espacio + 1),
-                            tipoDesdeC(parametro.substring(0, espacio))
-                    );
-                }
+        sb.append("\nint main(void) {\n");
+        for (Cuarteta q : cuartetas) {
+            String linea = traducirCuarteta(q, tipos);
+            if (!linea.isEmpty()) {
+                sb.append("    ").append(linea).append("\n");
             }
-
-            for (String variable : f.variablesLocales) {
-
-                TipoDato tipoVariable = tiposRetorno.get(variable);
-
-                if (tipoVariable == null
-                        || tipoVariable == TipoDato.DESCONOCIDO) {
-                    tipoVariable = TipoDato.ENTERO;
-                }
-
-                sb.append("    ")
-                        .append(tipoC(tipoVariable))
-                        .append(" ")
-                        .append(variable)
-                        .append(";\n");
-            }
-
-            List<String> pendientes = new ArrayList<>();
-
-            for (Cuarteta q : f.cuerpo) {
-
-                String linea = traducirCuarteta(
-                        q,
-                        pendientes,
-                        funciones,
-                        f.tipoRetorno,
-                        tiposFuncion,
-                        nombreCompleto,
-                        porBase
-                );
-
-                if (!linea.isEmpty()) {
-                    sb.append("    ")
-                            .append(linea)
-                            .append("\n");
-                }
-            }
-
-            sb.append("}\n\n");
-        }
-
-        if (main == null && !inicializacion.isEmpty()) {
-            sb.append("// AVISO: hay cuartetas fuera de función y no existe func_main\n");
-        }
-
-        sb.append("int main(void) {\n");
-        if (main != null) {
-            sb.append("    func_main();\n");
         }
         sb.append("    return 0;\n");
         sb.append("}\n");
@@ -231,25 +52,23 @@ public class GenerarCodigoC {
     }
 
     /* =========================================================
-       HELPERS
+       RECOLECCIÓN DE NOMBRES
        ========================================================= */
 
-    private static void recolectar(Cuarteta q, Set<String> temporales, Set<String> variables,
-                                   Set<String> parametrosLocales) {
+    private static void recolectar(Cuarteta q, Set<String> temporales, Set<String> variables) {
 
         String[] candidatos = switch (q.getOperador()) {
-            case "label", "goto", "halt", "comment", "param_decl" -> new String[0];
-            case "call", "new", "read"                            -> new String[]{q.getResultado()};
-            case "new_array"                                      -> new String[]{q.getArg2(), q.getResultado()};
-            case "attr_get"                                       -> new String[]{q.getArg1(), q.getResultado()};
-            case "field_set"                                      -> new String[]{q.getResultado(), q.getArg2()};
-            case "param", "print", "return", "if_true", "if_false" -> new String[]{q.getArg1()};
-            default                                               -> new String[]{q.getArg1(), q.getArg2(), q.getResultado()};
+            case "label", "goto", "halt", "comment"       -> new String[0];
+            case "new", "read"                            -> new String[]{q.getResultado()};
+            case "new_array"                              -> new String[]{q.getArg2(), q.getResultado()};
+            case "attr_get"                               -> new String[]{q.getArg1(), q.getResultado()};
+            case "field_set"                              -> new String[]{q.getResultado(), q.getArg2()};
+            case "print", "if_true", "if_false"           -> new String[]{q.getArg1()};
+            default                                       -> new String[]{q.getArg1(), q.getArg2(), q.getResultado()};
         };
 
         for (String arg : candidatos) {
-            if (arg == null || arg.equals("self")) continue;
-            if (parametrosLocales.contains(arg)) continue;   // parámetro de ESTA función, no va como global
+            if (arg == null || InferidorTipos.REGISTROS.contains(arg)) continue;
             if (arg.matches("t\\d+")) {
                 temporales.add(arg);
             } else if (arg.matches("[A-Za-z_]\\w*") && !arg.matches("L\\d+")) {
@@ -258,440 +77,24 @@ public class GenerarCodigoC {
         }
     }
 
-    /**
-     * Un parámetro que se usa como base de un acceso al heap (arreglo u objeto)
-     * es una dirección, no un valor. Se declara como uintptr_t sin importar
-     * el tipo de sus elementos (ej. "param flotante datos" en un arreglo).
-     */
-    private static void corregirParametrosReferencia(Collection<Funcion> funciones) {
-
-        for (Funcion f : funciones) {
-
-            Set<String> bases = new HashSet<>();
-
-            for (Cuarteta q : f.cuerpo) {
-                switch (q.getOperador()) {
-                    case "index_get", "attr_get" -> bases.add(q.getArg1());
-                    case "index_set", "field_set" -> bases.add(q.getResultado());
-                    default -> { }
-                }
-            }
-
-            for (int i = 0; i < f.parametros.size(); i++) {
-
-                String parametro = f.parametros.get(i);
-                int espacio = parametro.indexOf(' ');
-
-                if (espacio <= 0) {
-                    continue;
-                }
-
-                String nombre = parametro.substring(espacio + 1);
-
-                if (bases.contains(nombre)) {
-                    f.parametros.set(i, "uintptr_t " + nombre);
-                }
-            }
-        }
+    private static TipoDato tipoDeclaracion(TipoDato tipo) {
+        return (tipo == null || tipo == TipoDato.DESCONOCIDO) ? TipoDato.ENTERO : tipo;
     }
 
     private static TipoDato tipoDe(String valor, Map<String, TipoDato> tipos) {
-
-        if (valor == null) {
-            return TipoDato.DESCONOCIDO;
-        }
-
-        String v = normalizar(valor);
-        if (v.length() == 3 && v.charAt(0) == '\'' && v.charAt(2) == '\'') {
-            return TipoDato.ENTERO;   // un char es un entero en C
-        }
-
-        if (valor.startsWith("\"")) {
-            return TipoDato.TEXTO;
-        }
-
-        if (valor.matches("-?\\d+")) {
-            return TipoDato.ENTERO;
-        }
-
-        if (valor.matches("-?\\d+\\.\\d+")) {
-            return TipoDato.DECIMAL;
-        }
-
-        TipoDato tipo = tipos.get(valor);
-
-        if (tipo != null) {
-            return tipo;
-        }
-
-        return TipoDato.DESCONOCIDO;
+        return InferidorTipos.tipoDe(valor, tipos);
     }
 
-    private static String aTexto(String valor, Map<String, TipoDato> tipos) {
-        return tipoDe(valor, tipos) == TipoDato.TEXTO ? valor : "numAtexto(" + valor + ")";
-    }
-
-    private static Map<String, TipoDato> inferirTiposYRetornos(
-            List<Cuarteta> cuartetas,
-            Map<String, Funcion> funciones,
-            Map<String, String> nombreCompleto,
-            Map<String, List<Funcion>> porBase) {
-
-        Map<String, TipoDato> tipos = new HashMap<>();
-
-        Map<String, TipoDato> retornosFuncion = new HashMap<>();
-
-        for (String nombre : funciones.keySet()) {
-            retornosFuncion.put(nombre, TipoDato.VOID);
-        }
-
-        for (int pasada = 0; pasada < 10; pasada++) {
-
-            boolean cambio = false;
-            List<String> argsPendientes = new ArrayList<>();
-
-            for (Cuarteta q : cuartetas) {
-
-                String op = q.getOperador();
-                String res = q.getResultado();
-
-                if ("param".equals(op)) {
-                    argsPendientes.add(q.getArg1());
-                    continue;
-                }
-
-                List<String> argumentosLlamada = List.of();
-
-                if ("call".equals(op)) {
-                    argumentosLlamada = extraerArgumentos(argsPendientes, q.getArg2());
-                }
-
-                // ---------------------------------------------------------
-                // Cuartetas que NO definen el tipo de "res" como valor.
-                // Van ANTES del bloque de tipo declarado a propósito.
-                // ---------------------------------------------------------
-                if ("index_set".equals(op)
-                        || "field_set".equals(op)
-                        || "label".equals(op)
-                        || "goto".equals(op)
-                        || "halt".equals(op)
-                        || "comment".equals(op)
-                        || "param".equals(op)
-                        || "param_decl".equals(op)
-                        || "print".equals(op)
-                        || "return".equals(op)) {
-                    continue;
-                }
-
-                // ---------------------------------------------------------
-                // Referencias al heap: "res" siempre es una dirección,
-                // venga o no un tipo declarado en la cuarteta.
-                // ---------------------------------------------------------
-                if (("new".equals(op) || "new_array".equals(op)) && res != null) {
-
-                    TipoDato referencia = "new".equals(op)
-                            ? TipoDato.OBJETO
-                            : TipoDato.ESTRUCTURA;
-
-                    if (tipos.get(res) != referencia) {
-                        tipos.put(res, referencia);
-                        cambio = true;
-                    }
-
-                    continue;
-                }
-
-                /*
-                 * Si la cuarteta ya trae un tipo desde el AST/semántica,
-                 * ese tipo tiene prioridad.
-                 */
-                if (q.getTipoDeclarado() != null
-                        && res != null
-                        && !res.equals("self")) {
-
-                    TipoDato nuevoTipo = q.getTipoDeclarado();
-                    TipoDato anterior = tipos.get(res);
-
-                    if (anterior != nuevoTipo) {
-                        tipos.put(res, nuevoTipo);
-                        cambio = true;
-                    }
-
-                    continue;
-                }
-
-                switch (op) {
-
-                    // =====================================================
-                    // ASIGNACION
-                    // =====================================================
-                    case "=" -> {
-
-                        if (res == null) {
-                            break;
-                        }
-
-                        TipoDato tipoOrigen =
-                                tipoDe(q.getArg1(), tipos);
-
-                        if (tipoOrigen != TipoDato.DESCONOCIDO) {
-
-                            TipoDato anterior = tipos.get(res);
-
-                            if (anterior != tipoOrigen) {
-                                tipos.put(res, tipoOrigen);
-                                cambio = true;
-                            }
-
-                        } else if (q.getArg1() != null
-                                && q.getArg1().matches("t\\d+")) {
-
-                            // Inferencia hacia atrás: "nombre = t104" con
-                            // t104 desconocido (ej. un read) toma el tipo
-                            // del destino si ese ya se conoce.
-                            TipoDato tipoDestino = tipos.get(res);
-
-                            if (tipoDestino == TipoDato.TEXTO
-                                    || tipoDestino == TipoDato.ENTERO
-                                    || tipoDestino == TipoDato.DECIMAL
-                                    || tipoDestino == TipoDato.BOOLEANO) {
-
-                                tipos.put(q.getArg1(), tipoDestino);
-                                cambio = true;
-                            }
-                        }
-                    }
-
-                    // =====================================================
-                    // READ
-                    // =====================================================
-                    case "read" -> {
-
-                        if (res == null) {
-                            break;
-                        }
-
-                        TipoDato tipoRead = q.getTipoDeclarado();
-
-                        if (tipoRead != null
-                                && tipoRead != TipoDato.DESCONOCIDO) {
-
-                            TipoDato anterior = tipos.get(res);
-
-                            if (anterior != tipoRead) {
-                                tipos.put(res, tipoRead);
-                                cambio = true;
-                            }
-                        }
-                    }
-
-                    // =====================================================
-                    // ACCESO A ATRIBUTO / ARREGLO
-                    // =====================================================
-                    case "attr_get", "index_get" -> {
-
-                        if (res == null) {
-                            break;
-                        }
-
-                        TipoDato tipoAcceso = q.getTipoDeclarado();
-
-                        if (tipoAcceso != null
-                                && tipoAcceso != TipoDato.DESCONOCIDO) {
-
-                            TipoDato anterior = tipos.get(res);
-
-                            if (anterior != tipoAcceso) {
-                                tipos.put(res, tipoAcceso);
-                                cambio = true;
-                            }
-
-                        } else {
-
-                            if (!tipos.containsKey(res)) {
-
-                                tipos.put(
-                                        res,
-                                        TipoDato.DESCONOCIDO
-                                );
-
-                                cambio = true;
-                            }
-                        }
-                    }
-
-                    // =====================================================
-                    // CALL
-                    // =====================================================
-                    case "call" -> {
-
-                        if (res == null) {
-                            break;
-                        }
-
-                        Funcion destino = resolverSobrecarga(
-                                q.getArg1(), argumentosLlamada, porBase, tipos);
-
-                        TipoDato tipoRetorno = destino != null
-                                ? retornosFuncion.get(destino.nombre)
-                                : null;
-
-                        if (tipoRetorno != null
-                                && tipoRetorno != TipoDato.VOID
-                                && tipoRetorno != TipoDato.DESCONOCIDO) {
-
-                            TipoDato anterior = tipos.get(res);
-
-                            if (anterior != tipoRetorno) {
-                                tipos.put(res, tipoRetorno);
-                                cambio = true;
-                            }
-                        }
-                    }
-
-                    // =====================================================
-                    // OPERACIONES
-                    // =====================================================
-                    default -> {
-
-                        if (res == null || op.startsWith("if_")) {
-                            break;
-                        }
-
-                        TipoDato tipoIzquierda =
-                                tipoDe(q.getArg1(), tipos);
-
-                        TipoDato tipoDerecha =
-                                q.getArg2() != null
-                                        ? tipoDe(q.getArg2(), tipos)
-                                        : tipoIzquierda;
-
-                        TipoDato resultado;
-
-                        if ("==".equals(op)
-                                || "!=".equals(op)
-                                || "<".equals(op)
-                                || ">".equals(op)
-                                || "<=".equals(op)
-                                || ">=".equals(op)
-                                || "&&".equals(op)
-                                || "||".equals(op)) {
-
-                            resultado = TipoDato.BOOLEANO;
-
-                        } else if ("+".equals(op)
-                                && (tipoIzquierda == TipoDato.TEXTO
-                                || tipoDerecha == TipoDato.TEXTO)) {
-
-                            resultado = TipoDato.TEXTO;
-
-                        } else if (tipoIzquierda == TipoDato.DECIMAL
-                                || tipoDerecha == TipoDato.DECIMAL) {
-
-                            resultado = TipoDato.DECIMAL;
-
-                        } else if (tipoIzquierda == TipoDato.DESCONOCIDO
-                                || tipoDerecha == TipoDato.DESCONOCIDO) {
-
-                            resultado = TipoDato.DESCONOCIDO;
-
-                        } else {
-
-                            resultado = TipoDato.ENTERO;
-                        }
-
-                        TipoDato anterior = tipos.get(res);
-
-                        if (anterior != resultado) {
-
-                            tipos.put(
-                                    res,
-                                    resultado
-                            );
-
-                            cambio = true;
-                        }
-                    }
-                }
-            }
-
-            // =============================================================
-            // RESOLVER RETORNOS DE FUNCIONES
-            // =============================================================
-
-            for (Funcion f : funciones.values()) {
-
-                TipoDato retorno = TipoDato.VOID;
-
-                for (Cuarteta q : f.cuerpo) {
-
-                    if (!"return".equals(q.getOperador())) {
-                        continue;
-                    }
-
-                    if (q.getArg1() == null) {
-                        retorno = TipoDato.VOID;
-                        continue;
-                    }
-
-                    TipoDato tipoRetorno =
-                            tipoDe(q.getArg1(), tipos);
-
-                    if (tipoRetorno != TipoDato.DESCONOCIDO) {
-                        retorno = tipoRetorno;
-                    }
-                }
-
-                TipoDato anterior =
-                        retornosFuncion.put(
-                                f.nombre,
-                                retorno
-                        );
-
-                if (anterior != retorno) {
-                    cambio = true;
-                }
-            }
-
-            if (!cambio) {
-                break;
-            }
-        }
-
-        // =============================================================
-        // GUARDAR TIPOS DE RETORNO
-        // =============================================================
-
-        for (Funcion f : funciones.values()) {
-
-            f.tipoRetorno =
-                    retornosFuncion.getOrDefault(
-                            f.nombre,
-                            TipoDato.VOID
-                    );
-        }
-
-        return tipos;
-    }
-    private static String numero(String valor, String operador) {
-        if (valor == null || !valor.matches("\\d+")) {
-            throw new IllegalStateException("La cuarteta '" + operador + "' necesita un desplazamiento numérico y recibió '"
-                    + valor + "'. Revisa AccesoAtributo y Asignacion.");
-        }
-        return valor;
-    }
-
-    private static String traducirCuarteta(Cuarteta q, List<String> pendientes, Map<String, Funcion> funciones, TipoDato tipoRetornoFuncion,
-                                           Map<String, TipoDato> tipos, Map<String, String> nombreCompleto,
-                                           Map<String, List<Funcion>> porBase) {
+    /* =========================================================
+       TRADUCCIÓN CUARTETA -> C
+       ========================================================= */
+
+    private static String traducirCuarteta(Cuarteta q, Map<String, TipoDato> tipos) {
 
         String op = q.getOperador();
-        String a1 = q.getArg1();
-        String a2 = q.getArg2();
+        String a1 = InferidorTipos.normalizar(q.getArg1());
+        String a2 = InferidorTipos.normalizar(q.getArg2());
         String res = q.getResultado();
-
-        a1 = normalizar(a1);
-        a2 = normalizar(a2);
 
         return switch (op) {
 
@@ -699,41 +102,44 @@ public class GenerarCodigoC {
             case "goto"     -> "goto " + res + ";";
             case "if_true"  -> "if (" + a1 + ") goto " + res + ";";
             case "if_false" -> "if (!" + a1 + ") goto " + res + ";";
-            case "="        -> res + " = " + a1 + ";";
             case "neg"      -> res + " = -" + a1 + ";";
             case "not"      -> res + " = !" + a1 + ";";
             case "comment"  -> "// " + String.valueOf(res).replace('\n', ' ');
             case "halt"     -> "";
 
-            case "param" -> {
-                pendientes.add(a1);
-                yield "";
+            // ---- Estas operaciones ya no existen: indican un nodo sin migrar ----
+            case "call", "param", "param_decl", "return" ->
+                    throw new IllegalStateException("La cuarteta '" + op + "' ya no está permitida (C3D sin funciones). "
+                            + "Revisa el nodo que la genera: debe usar contexto.llamar(...) / retornar(...) / abrirFuncion(...).");
+
+            // ---- Asignación (con el registro retval) ----
+            case "=" -> {
+                if ("retval".equals(res)) {
+                    yield escribirCelda("retval", a1, tipoDe(a1, tipos));
+                }
+                if ("retval".equals(a1)) {
+                    yield res + " = " + leerCelda("retval", tipoDe(res, tipos)) + ";";
+                }
+                yield res + " = " + a1 + ";";
             }
 
-            case "call" -> {
-                List<String> args = extraerArgumentos(pendientes, a2);
-                Funcion destino = resolverSobrecarga(a1, args, porBase, tipos);
-                String nombreC = destino != null ? destino.nombreC() : a1;
-                String llamada = nombreC + "(" + String.join(", ", args) + ")";
-                boolean descartar = (res == null) || destino == null || destino.tipoRetorno == TipoDato.VOID;
-                yield (descartar ? llamada : res + " = " + llamada) + ";";
-            }
-
-            case "return" -> a1 != null
-                    ? "return " + a1 + ";"
-                    : (tipoRetornoFuncion == TipoDato.VOID ? "return;" : "return 0;");
+            // ---- Pila manual ----
+            case "stack_get" -> res + " = " + leerCelda("stack[(int)" + a1 + "]", tipoDe(res, tipos)) + ";";
+            case "stack_set" -> escribirCelda("stack[(int)" + a1 + "]", a2, tipoDe(a2, tipos));
 
             case "print" -> {
                 String salto = "nl".equals(a2) ? "\\n" : "";
                 yield switch (tipoDe(a1, tipos)) {
-                    case TEXTO   -> "printf(\"%s" + salto + "\", " + literalC(a1) + ");";
-                    case DECIMAL -> "printf(\"%f" + salto + "\", " + a1 + ");";
-                    default      -> "printf(\"%d" + salto + "\", " + a1 + ");";
+                    case TEXTO    -> "printf(\"%s" + salto + "\", " + literalC(a1) + ");";
+                    case DECIMAL  -> "printf(\"%f" + salto + "\", " + a1 + ");";
+                    case CARACTER -> "printf(\"%c" + salto + "\", " + a1 + ");";
+                    default       -> "printf(\"%d" + salto + "\", " + a1 + ");";
                 };
             }
 
             case "read" -> generarLectura(res, tipos);
 
+            // ---- Heap ----
             case "new" -> {
                 if (a2 == null || !a2.matches("\\d+")) {
                     throw new IllegalStateException("La cuarteta 'new' no trae el tamaño del objeto. "
@@ -743,54 +149,31 @@ public class GenerarCodigoC {
             }
 
             case "new_array" -> res + " = hp; hp = hp + " + a2 + ";";
+
             case "attr_get" -> {
-
-                TipoDato tipoResultado = tipoDe(res, tipos);
-
-                String cast = "";
-
-                if (tipoResultado == TipoDato.TEXTO) {
-                    cast = "(char*)";
-                }
-
+                String cast = tipoDe(res, tipos) == TipoDato.TEXTO ? "(char*)" : "";
                 yield res + " = " + cast + "heap[" + a1 + " + " + numero(a2, op) + "];";
             }
+
             case "field_set" -> {
-
-                TipoDato tipoValor =
-                        tipoDe(a2, tipos);
-
+                TipoDato tipoValor = tipoDe(a2, tipos);
                 String valor = a2;
-
-                if (tipoValor == TipoDato.TEXTO
-                        || tipoValor == TipoDato.OBJETO
-                        || tipoValor == TipoDato.ESTRUCTURA) {
-
+                if (tipoValor == TipoDato.TEXTO || tipoValor == TipoDato.OBJETO || tipoValor == TipoDato.ESTRUCTURA) {
                     valor = "(uintptr_t)" + a2;
                 }
-
                 yield "heap[" + res + " + " + numero(a1, op) + "] = " + valor + ";";
             }
+
             case "index_get" -> {
-
-                TipoDato tipoResultado =
-                        tipoDe(res, tipos);
-
-                String cast = "";
-
-                if (tipoResultado == TipoDato.TEXTO) {
-                    cast = "(char*)";
-                }
-
+                String cast = tipoDe(res, tipos) == TipoDato.TEXTO ? "(char*)" : "";
                 yield res + " = " + cast + "heap[" + a1 + " + " + a2 + "];";
             }
+
             case "index_set" -> "heap[" + res + " + " + a1 + "] = " + a2 + ";";
 
             default -> {
                 if ("+".equals(op) && tipoDe(res, tipos) == TipoDato.TEXTO) {
-                    String argA = aTexto(a1, tipos);
-                    String argB = aTexto(a2, tipos);
-                    yield res + " = concat(" + argA + ", " + argB + ");";
+                    yield res + " = concat(" + aTexto(a1, tipos) + ", " + aTexto(a2, tipos) + ");";
                 }
                 yield op.startsWith("if_")
                         ? "if (" + a1 + " " + op.substring(3) + " " + a2 + ") goto " + res + ";"
@@ -799,76 +182,67 @@ public class GenerarCodigoC {
         };
     }
 
-    private static void emitIncludes(StringBuilder sb) {
-        sb.append("#include <stdio.h>\n");
-        sb.append("#include <stdlib.h>\n");
-        sb.append("#include <string.h>\n");
-        sb.append("#include <stdint.h>\n\n");
-    }
+    /* =========================================================
+       CELDAS DE PILA (stack y retval)
+       ========================================================= */
 
-    private static void emitHeapGlobals(StringBuilder sb) {
-        sb.append("uintptr_t heap[100000];\n");
-        sb.append("int hp = 1;   // 0 = null\n\n");
-    }
-
-    private static void emitRuntimeHelpers(StringBuilder sb) {
-        emitConcatHelper(sb);
-        emitNumAtextoHelper(sb);
-    }
-
-    private static void emitConcatHelper(StringBuilder sb) {
-        sb.append("char* concat(const char* a, const char* b) {\n");
-        sb.append("    char* buf = malloc(strlen(a) + strlen(b) + 1);\n");
-        sb.append("    strcpy(buf, a);\n");
-        sb.append("    strcat(buf, b);\n");
-        sb.append("    return buf;\n");
-        sb.append("}\n\n");
-    }
-
-    private static void emitNumAtextoHelper(StringBuilder sb) {
-        sb.append("char* numAtexto(int n) {\n");
-        sb.append("    char* buf = malloc(32);\n");
-        sb.append("    snprintf(buf, 32, \"%d\", n);\n");
-        sb.append("    return buf;\n");
-        sb.append("}\n\n");
-    }
-
-    private static TipoDato convertirTipo(String tipo) {
-
-        if (tipo == null) {
-            return TipoDato.DESCONOCIDO;
+    private static String escribirCelda(String destino, String valor, TipoDato tipo) {
+        if (tipo == TipoDato.TEXTO) {
+            return destino + ".s = " + literalC(valor) + ";";
         }
-
-        return switch (tipo.toLowerCase()) {
-            case "entero", "int" -> TipoDato.ENTERO;
-            case "flotante", "decimal", "double" -> TipoDato.DECIMAL;
-            case "cadena", "texto", "string" -> TipoDato.TEXTO;
-            case "boolean", "booleano" -> TipoDato.BOOLEANO;
-            case "objeto", "direccion", "referencia" -> TipoDato.OBJETO;
-            default -> TipoDato.OBJETO;
-        };
+        return destino + ".i = (long long)(" + valor + "); "
+                + destino + ".d = (double)(" + valor + ");";
     }
 
-    private static TipoDato tipoDesdeC(String tipo) {
-
-        if (tipo == null) {
-            return TipoDato.DESCONOCIDO;
-        }
-
+    private static String leerCelda(String origen, TipoDato tipo) {
         return switch (tipo) {
-            case "int" -> TipoDato.ENTERO;
-            case "double" -> TipoDato.DECIMAL;
-            case "char*" -> TipoDato.TEXTO;
-            case "uintptr_t" -> TipoDato.OBJETO;
-            case "void" -> TipoDato.VOID;
-            default -> TipoDato.DESCONOCIDO;
+            case DECIMAL -> origen + ".d";
+            case TEXTO   -> origen + ".s";
+            default      -> origen + ".i";
         };
     }
 
-    private static String generarLectura(
-            String destino,
-            Map<String, TipoDato> tipos
-    ) {
+    /* =========================================================
+       HELPERS
+       ========================================================= */
+
+    private static String numero(String valor, String operador) {
+        if (valor == null || !valor.matches("\\d+")) {
+            throw new IllegalStateException("La cuarteta '" + operador + "' necesita un desplazamiento numérico y recibió '"
+                    + valor + "'. Revisa AccesoAtributo y Asignacion.");
+        }
+        return valor;
+    }
+
+    private static String aTexto(String valor, Map<String, TipoDato> tipos) {
+        TipoDato tipo = tipoDe(valor, tipos);
+        if (tipo == TipoDato.TEXTO) {
+            return valor;
+        }
+        if (tipo == TipoDato.CARACTER) {
+            return "charAtexto(" + valor + ")";
+        }
+        return "numAtexto(" + valor + ")";
+    }
+
+    private static String literalC(String valor) {
+        if (valor == null || !valor.startsWith("\"")) {
+            return valor;
+        }
+        return valor.replace("\r", "")
+                .replace("\n", "\\n")
+                .replace("\t", "\\t");
+    }
+
+    private static String tipoC(TipoDato tipo) {
+        return switch (tipo) {
+            case OBJETO, ESTRUCTURA -> "uintptr_t";
+            case CARACTER           -> "char";
+            default                 -> tipo.aTipoC();
+        };
+    }
+
+    private static String generarLectura(String destino, Map<String, TipoDato> tipos) {
 
         TipoDato tipo = tipoDe(destino, tipos);
 
@@ -894,6 +268,9 @@ public class GenerarCodigoC {
                             + destino + "[0] = '\\0'; "
                             + "}";
 
+            case CARACTER ->
+                    "scanf(\" %c\", &" + destino + ");";
+
             default ->
                     "if (scanf(\"%d\", &" + destino + ") != 1) { "
                             + "int c; "
@@ -903,124 +280,57 @@ public class GenerarCodigoC {
         };
     }
 
-    /**
-     * Candidatas: nombre exacto (func_X) o método de cualquier clase (Clase_X).
-     * Se elige por cantidad de argumentos y luego por compatibilidad de tipos.
-     */
-    private static Funcion resolverSobrecarga(String nombre, List<String> args,
-                                              Map<String, List<Funcion>> porBase,
-                                              Map<String, TipoDato> tipos) {
+    /* =========================================================
+       ENCABEZADO Y RUNTIME
+       ========================================================= */
 
-        List<Funcion> candidatas = new ArrayList<>();
-
-        List<Funcion> exactas = porBase.get(nombre);
-        if (exactas != null) {
-            candidatas.addAll(exactas);
-        }
-
-        for (Map.Entry<String, List<Funcion>> e : porBase.entrySet()) {
-            if (e.getKey().endsWith("_" + nombre)) {
-                candidatas.addAll(e.getValue());
-            }
-        }
-
-        if (candidatas.isEmpty()) {
-            return null;
-        }
-
-        Funcion mejor = null;
-        int mejorPuntaje = -1;
-
-        for (Funcion f : candidatas) {
-
-            if (f.parametros.size() != args.size()) {
-                continue;
-            }
-
-            int puntaje = 0;
-
-            for (int i = 0; i < args.size(); i++) {
-                puntaje += compatibilidad(f.parametros.get(i), args.get(i), tipos);
-            }
-
-            if (puntaje > mejorPuntaje) {
-                mejorPuntaje = puntaje;
-                mejor = f;
-            }
-        }
-
-        // Sin coincidencia de aridad: se devuelve la primera para que gcc reporte el error real
-        return mejor != null ? mejor : candidatas.get(0);
+    private static void emitIncludes(StringBuilder sb) {
+        sb.append("#include <stdio.h>\n");
+        sb.append("#include <stdlib.h>\n");
+        sb.append("#include <string.h>\n");
+        sb.append("#include <stdint.h>\n\n");
     }
 
-    /**
-     * Saca de "pendientes" solo los ÚLTIMOS N argumentos (N = conteo de la
-     * cuarteta call). Los anteriores pertenecen a una llamada externa.
-     */
-    private static List<String> extraerArgumentos(List<String> pendientes, String conteo) {
+    private static void emitGlobals(StringBuilder sb) {
+        sb.append("// ==== MEMORIA ====\n");
+        sb.append("uintptr_t heap[100000];\n");
+        sb.append("int hp = 1;   // 0 = null\n\n");
 
-        int n = pendientes.size();
-
-        if (conteo != null && conteo.matches("\\d+")) {
-            n = Math.min(Integer.parseInt(conteo), pendientes.size());
-        }
-
-        List<String> tramo = pendientes.subList(pendientes.size() - n, pendientes.size());
-        List<String> args = new ArrayList<>(tramo);
-        tramo.clear();
-
-        return args;
+        sb.append("typedef struct { long long i; double d; char* s; } Celda;\n");
+        sb.append("Celda stack[100000];\n");
+        sb.append("long long fp = 0, sp = 0, retaddr = 0;\n");
+        sb.append("Celda retval;\n\n");
     }
 
-    private static int compatibilidad(String parametro, String arg, Map<String, TipoDato> tipos) {
-
-        int espacio = parametro.indexOf(' ');
-        TipoDato esperado = tipoDesdeC(espacio > 0 ? parametro.substring(0, espacio) : parametro);
-        TipoDato recibido = tipoDe(arg, tipos);
-
-        if (esperado == TipoDato.DESCONOCIDO || recibido == TipoDato.DESCONOCIDO) {
-            return 1;
-        }
-
-        if (esperado == recibido) {
-            return 3;
-        }
-
-        boolean refEsperado = esperado == TipoDato.OBJETO || esperado == TipoDato.ESTRUCTURA;
-        boolean refRecibido = recibido == TipoDato.OBJETO || recibido == TipoDato.ESTRUCTURA;
-
-        if (refEsperado && refRecibido) {
-            return 3;
-        }
-
-        boolean numEsperado = esperado == TipoDato.ENTERO || esperado == TipoDato.DECIMAL;
-        boolean numRecibido = recibido == TipoDato.ENTERO || recibido == TipoDato.DECIMAL;
-
-        return (numEsperado && numRecibido) ? 2 : 0;
+    private static void emitRuntimeHelpers(StringBuilder sb) {
+        emitConcatHelper(sb);
+        emitCharAtextoHelper(sb);
+        emitNumAtextoHelper(sb);
     }
 
-    private static String literalC(String valor) {
-        if (valor == null || !valor.startsWith("\"")) {
-            return valor;
-        }
-        return valor.replace("\r", "")
-                .replace("\n", "\\n")
-                .replace("\t", "\\t");
+    private static void emitConcatHelper(StringBuilder sb) {
+        sb.append("char* concat(const char* a, const char* b) {\n");
+        sb.append("    char* buf = malloc(strlen(a) + strlen(b) + 1);\n");
+        sb.append("    strcpy(buf, a);\n");
+        sb.append("    strcat(buf, b);\n");
+        sb.append("    return buf;\n");
+        sb.append("}\n\n");
     }
 
-    private static String normalizar(String v) {
-        if (v == null || v.length() < 4) return v;
-        // "\"'a'\""  ->  "'a'"
-        if (v.startsWith("\"'") && v.endsWith("'\"")) {
-            return v.substring(1, v.length() - 1);
-        }
-        return v;
+    private static void emitNumAtextoHelper(StringBuilder sb) {
+        sb.append("char* numAtexto(int n) {\n");
+        sb.append("    char* buf = malloc(32);\n");
+        sb.append("    snprintf(buf, 32, \"%d\", n);\n");
+        sb.append("    return buf;\n");
+        sb.append("}\n\n");
     }
 
-    private static String tipoC(TipoDato tipo) {
-        if (tipo == TipoDato.OBJETO || tipo == TipoDato.ESTRUCTURA) {
-            return "uintptr_t";
-        }
-        return tipo.aTipoC();
+    private static void emitCharAtextoHelper(StringBuilder sb) {
+        sb.append("char* charAtexto(char c) {\n");
+        sb.append("    char* buf = malloc(2);\n");
+        sb.append("    buf[0] = c;\n");
+        sb.append("    buf[1] = '\\0';\n");
+        sb.append("    return buf;\n");
+        sb.append("}\n\n");
     }
 }

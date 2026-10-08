@@ -103,13 +103,15 @@ public class Programa extends NodoAST {
             }
         }
 
-        if (declaraciones != null) {
+        // Variables globales del programa (.pig): se ejecutan ANTES de main
+        if (declaraciones != null && !declaraciones.isEmpty()) {
+            contexto.abrirGlobales();
             for (Declaracion d : declaraciones) {
                 d.generarC3D(contexto);
             }
+            contexto.cerrarGlobales();
         }
 
-        contexto.agregar("halt", null, null, null);
 
         return null;
     }

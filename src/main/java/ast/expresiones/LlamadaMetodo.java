@@ -5,6 +5,7 @@ import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -28,6 +29,25 @@ public class LlamadaMetodo extends Expresion {
     @Override
     public String generarC3D(ContextoC3D contexto) {
 
+        List<String> args = new ArrayList<>();
+        args.add(objeto.generarC3D(contexto));     // self
+
+        if (argumentos != null) {
+            for (Expresion arg : argumentos) {
+                args.add(arg.generarC3D(contexto));
+            }
+        }
+
+        // Si el semántico no asignó claseReceptor, se busca la clase que define el método
+        String nombreFuncion = contexto.resolverMetodo(claseReceptor, metodo, args.size());
+
+        return contexto.llamar(nombreFuncion, args, tipoResultado);
+    }
+
+    /*
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+
         String obj = objeto.generarC3D(contexto);
         contexto.agregar("param", obj, null, null);
 
@@ -48,4 +68,5 @@ public class LlamadaMetodo extends Expresion {
 
         return temporal;
     }
+     */
 }

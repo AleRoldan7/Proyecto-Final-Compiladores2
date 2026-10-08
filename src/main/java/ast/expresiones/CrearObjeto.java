@@ -38,6 +38,33 @@ public class CrearObjeto extends Expresion {
         String constructor = ContextoC3D.nombreConstructor(getNombreClase());
 
         if (contexto.existeFuncion(constructor)) {
+            List<String> args = new ArrayList<>();
+            args.add(objeto);          // self
+            args.addAll(lugares);
+            contexto.llamar(constructor, args, null);
+        }
+
+        return objeto;
+    }
+
+    /*
+    @Override
+    public String generarC3D(ContextoC3D contexto) {
+
+        List<String> lugares = new ArrayList<>();
+
+        if (getArgumentos() != null) {
+            for (Expresion argumento : getArgumentos()) {
+                lugares.add(argumento.generarC3D(contexto));
+            }
+        }
+
+        String objeto = contexto.nuevoTemporal(TipoDato.OBJETO);
+        contexto.agregar("new", getNombreClase(), String.valueOf(contexto.tamanio(getNombreClase())), objeto);
+
+        String constructor = ContextoC3D.nombreConstructor(getNombreClase());
+
+        if (contexto.existeFuncion(constructor)) {
             contexto.agregar("param", objeto, null, null);
             for (String lugar : lugares) {
                 contexto.agregar("param", lugar, null, null);
@@ -47,4 +74,5 @@ public class CrearObjeto extends Expresion {
 
         return objeto;
     }
+     */
 }
