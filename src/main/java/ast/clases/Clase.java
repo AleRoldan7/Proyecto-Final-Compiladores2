@@ -16,18 +16,20 @@ import java.util.List;
 public class Clase extends NodoAST {
 
     private String nombreClase;
+    private String superClase;
+
     private List<Atributo> atributos;
     private List<Constructor> constructores;
     private List<Metodo> metodos;
 
-    public Clase(int linea, int columna, String nombreClase, List<Atributo> atributos, List<Constructor> constructores, List<Metodo> metodos) {
+    public Clase(int linea, int columna, String nombreClase, String superClase, List<Atributo> atributos, List<Constructor> constructores, List<Metodo> metodos) {
         super(linea, columna);
         this.nombreClase = nombreClase;
+        this.superClase = superClase;
         this.atributos = atributos;
         this.constructores = constructores;
         this.metodos = metodos;
     }
-
 
     @Override
     public String generarC3D(ContextoC3D contexto) {
@@ -59,17 +61,13 @@ public class Clase extends NodoAST {
         }
         contexto.registrarClase(nombreClase, nombres, tipos);
 
-        // Siempre se genera un constructor (explícito o por defecto)
         contexto.registrarFuncion(ContextoC3D.nombreConstructor(nombreClase));
 
-        // Métodos de la clase: nombre + aridad (self cuenta como argumento)
         if (metodos != null) {
             for (Metodo m : metodos) {
                 int aridad = (m.getParametros() == null ? 0 : m.getParametros().size()) + 1;
                 contexto.registrarMetodo(nombreClase, m.getNombreMetodo(), aridad);
-                contexto.registrarRetorno(
-                        ContextoC3D.nombreFuncion(nombreClase, m.getNombreMetodo()),
-                        aridad,
+                contexto.registrarRetorno(ContextoC3D.nombreFuncion(nombreClase, m.getNombreMetodo()), aridad,
                         ConversorTipos.aTipoDato(m.getTipoRetorno()));
             }
         }

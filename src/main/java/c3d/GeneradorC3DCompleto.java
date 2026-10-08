@@ -2,6 +2,7 @@ package c3d;
 
 import assembler.generador.GeneradorRiscV;
 import ast.NodoAST;
+import ast.Programa;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,7 +32,7 @@ public class GeneradorC3DCompleto {
         // ==========================================
         for (ArchivoFuente archivo : archivos) {
 
-            if (archivo.raiz() instanceof ast.Programa programa
+            if (archivo.raiz() instanceof Programa programa
                     && programa.getClases() != null) {
 
                 for (ast.clases.Clase clase : programa.getClases()) {
@@ -42,6 +43,16 @@ public class GeneradorC3DCompleto {
 
         // Resolver layouts de estructuras
         ctx.resolverEstructuras();
+
+        for (ArchivoFuente archivo : archivos) {
+            if (archivo.raiz() instanceof Programa programa && programa.getFunciones() != null) {
+                for (ast.declaraciones.DeclaracionFuncion f : programa.getFunciones()) {
+                    int aridad = f.getParametros() == null ? 0 : f.getParametros().size();
+                    ctx.registrarRetorno(f.getNombreFuncion(), aridad,
+                            ConversorTipos.aTipoDato(f.getTipoRetorno()));
+                }
+            }
+        }
 
         // ==========================================
         // 2. Inicio del programa: fp = 0, sp = 0, goto func_main

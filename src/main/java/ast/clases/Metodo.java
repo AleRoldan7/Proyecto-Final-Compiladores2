@@ -8,6 +8,7 @@ import ast.sentencias.SentenciaReturn;
 import ast.tipos.Tipo;
 import c3d.ContextoC3D;
 import c3d.ConversorTipos;
+import enums.ModificadorAcceso;
 import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,12 +25,17 @@ public class Metodo extends NodoAST {
     private List<Parametro> parametros;
     private Bloque cuerpoMetodo;
 
+    private ModificadorAcceso modificadorAcceso;
+    private boolean override;
+
     public Metodo(int linea, int columna, String nombreMetodo, Tipo tipoRetorno, List<Parametro> parametros, Bloque cuerpoMetodo) {
         super(linea, columna);
         this.nombreMetodo = nombreMetodo;
         this.tipoRetorno = tipoRetorno;
         this.parametros = parametros;
         this.cuerpoMetodo = cuerpoMetodo;
+        this.modificadorAcceso = ModificadorAcceso.DEFAULT;
+        this.override = false;
     }
 
     @Override

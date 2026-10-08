@@ -12,6 +12,7 @@ import ast.expresiones.*;
 import ast.sentencias.*;
 import ast.tipos.Tipo;
 
+import enums.ModificadorAcceso;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import compi2.proyectofinal.GrammarZetarianoBaseVisitor;
@@ -49,7 +50,12 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
     @Override
     public NodoAST visitCreacionClase(GrammarZetarianoParser.CreacionClaseContext ctx) {
 
-        String nombreClase = ctx.ID().getText();
+        String nombreClase = ctx.ID(0).getText();
+        String superClase = null;
+
+        if (ctx.ID().size() > 1) {
+            superClase = ctx.ID(1).getText();
+        }
 
         List<Atributo> atributos = new ArrayList<>();
         List<Constructor> constructores = new ArrayList<>();
@@ -74,7 +80,7 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
             }
         }
 
-        return new Clase(linea(ctx), columna(ctx), nombreClase, atributos, constructores, metodos);
+        return new Clase(linea(ctx), columna(ctx), nombreClase, superClase, atributos, constructores, metodos);
     }
 
     @Override
@@ -84,6 +90,11 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         String nombre = ctx.ID().getText();
 
         Atributo atributo = new Atributo(linea(ctx), columna(ctx), tipo, nombre);
+
+        if (ctx.modificadorAcceso() != null) {
+            String modificador = ctx.modificadorAcceso().getText();
+            atributo.setModificadorAcceso(convertirModificador(modificador));
+        }
 
         if (esTipoArreglo(ctx.tipo())) {
 
@@ -135,8 +146,8 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
     public NodoAST visitMetodo(GrammarZetarianoParser.MetodoContext ctx) {
 
         String nombreMetodo = ctx.ID().getText();
-
         Tipo tipoRetorno;
+
         if (ctx.VOID() != null) {
             tipoRetorno = new Tipo(linea(ctx), columna(ctx), "void", false, 0);
         } else {
@@ -146,7 +157,15 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         List<Parametro> parametros = construirParametros(ctx.listaParametros());
         Bloque cuerpo = (Bloque) visit(ctx.bloque());
 
-        return new Metodo(linea(ctx), columna(ctx), nombreMetodo, tipoRetorno, parametros, cuerpo);
+        Metodo metodo = new Metodo(linea(ctx), columna(ctx), nombreMetodo, tipoRetorno, parametros, cuerpo);
+
+        if (ctx.modificadorAcceso() != null) {
+            metodo.setModificadorAcceso(convertirModificador(ctx.modificadorAcceso().getText()));
+        }
+
+        metodo.setOverride(ctx.anotacionOverride() != null);
+
+        return metodo;
     }
 
 
@@ -894,6 +913,14 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
     }
 
 
+    private ModificadorAcceso convertirModificador(String modificador) {
+        return switch (modificador) {
+            case "public" -> ModificadorAcceso.PUBLIC;
+            case "private" -> ModificadorAcceso.PRIVATE;
+            case "protected" -> ModificadorAcceso.PROTECTED;
+            default -> ModificadorAcceso.DEFAULT;
+        };
+    }
 
     private int linea(ParserRuleContext ctx) {
         return ctx.getStart().getLine();

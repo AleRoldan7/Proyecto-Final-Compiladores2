@@ -59,6 +59,7 @@ public class ContextoC3D {
     private int contadorGlobales = 0;
 
     private final Map<String, TipoDato> tiposLocales = new HashMap<>();
+    private final Map<String, TipoDato> tiposRetorno = new HashMap<>();
 
     // =====================================================
     //  Temporales
@@ -457,12 +458,17 @@ public class ContextoC3D {
         // Marca: restauración de los temporales vivos
         agregar("call_restore", null, null, String.valueOf(id));
 
-        if (tipoRetorno == TipoDato.VOID) {
+        TipoDato tipoFinal = tipoRetorno;
+        if (tipoFinal == null || tipoFinal == TipoDato.DESCONOCIDO) {
+            tipoFinal = tiposRetorno.getOrDefault(real, TipoDato.DESCONOCIDO);
+        }
+
+        if (tipoFinal == TipoDato.VOID) {
             return null;
         }
-        TipoDato tipoResultado = (tipoRetorno != null) ? tipoRetorno : TipoDato.DESCONOCIDO;
-        String resultado = nuevoTemporal(tipoResultado);
-        agregar("=", "retval", null, resultado, tipoResultado);
+
+        String resultado = nuevoTemporal(tipoFinal);
+        agregar("=", "retval", null, resultado, tipoFinal);
         return resultado;
     }
 
@@ -728,6 +734,10 @@ public class ContextoC3D {
         return Set.of("print", "println", "imprimir").contains(nombre);
     }
 
+    public static boolean imprimeConSalto(String nombre) {
+        return Set.of("println", "imprimir").contains(nombre);
+    }
+
     public static boolean esLectura(String nombre) {
         return Set.of("readln", "leer").contains(nombre);
     }
@@ -918,6 +928,10 @@ public class ContextoC3D {
 
     public void registrarVariable(String nombre, TipoDato dato) {
         tipoVariables.put(nombre, dato);
+    }
+
+    public void registrarRetorno(String nombre, int aridad, TipoDato tipo) {
+        tiposRetorno.put(nombreReal(nombre, aridad), tipo);
     }
 
     /*

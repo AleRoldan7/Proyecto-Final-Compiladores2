@@ -63,17 +63,18 @@ public class TraductorES implements TraductorCuarteta {
                 contextoRiscV.operadoresRiscV.guardarEntero("a0", destino);
             }
             case DECIMAL -> {
-                Ecall.emitir(contextoRiscV.asmContexto, Ecall.LEER_DECIMAL);
+                contextoRiscV.asmContexto.instruccion("jal ra, rt_leer_texto");
+                contextoRiscV.asmContexto.instruccion("jal ra, rt_atof");  // o similar
                 contextoRiscV.operadoresRiscV.guardarDecimal("fa0", destino);
             }
-
             case CARACTER -> {
                 contextoRiscV.asmContexto.instruccion("jal ra, rt_leer_caracter");
                 contextoRiscV.operadoresRiscV.guardarEntero("a0", destino);
             }
-
             default -> {
-                Ecall.emitir(contextoRiscV.asmContexto, Ecall.LEER_ENTERO);
+                // ENTERO: leer texto y parsear
+                contextoRiscV.asmContexto.instruccion("jal ra, rt_leer_texto");
+                contextoRiscV.asmContexto.instruccion("jal ra, rt_atoi");
                 contextoRiscV.operadoresRiscV.guardarEntero("a0", destino);
             }
         }

@@ -22,6 +22,7 @@ public class GeneradorRiscV {
             new TraductorES()
     );
 
+
     public static String generar(List<Cuarteta> cuartetas, Map<String, TipoDato> tiposTemporales) {
 
         Map<String, TipoDato> tipos = InferidorTipos.inferir(cuartetas, tiposTemporales);

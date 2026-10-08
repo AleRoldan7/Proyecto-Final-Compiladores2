@@ -7,7 +7,7 @@ program:
     ;
 
 creacionClase:
-    PUBLIC CLASS ID LLAVE_ABRE contenidoClase* LLAVE_CIERRA
+    PUBLIC? CLASS ID (EXTENDS ID)? LLAVE_ABRE contenidoClase* LLAVE_CIERRA
     ;
 
 contenidoClase:
@@ -17,7 +17,7 @@ contenidoClase:
     ;
 
 atributo:
-    tipo ID (IGUAL (expresion | listaValores))? PUNTO_COMA
+    modificadorAcceso? tipo ID (IGUAL (expresion | listaValores))? PUNTO_COMA
     ;
 
 constructor:
@@ -25,7 +25,7 @@ constructor:
     ;
 
 metodo:
-    PUBLIC (tipo | VOID) ID PARENTESIS_ABRE listaParametros? PARENTESIS_CIERRA bloque
+    anotacionOverride? modificadorAcceso? (tipo | VOID) ID PARENTESIS_ABRE listaParametros? PARENTESIS_CIERRA bloque
     ;
 
 listaParametros:
@@ -43,6 +43,16 @@ tipoBase:
 
 tipo:
     tipoBase (CORCHETE_ABRE CORCHETE_CIERRA)*
+    ;
+
+modificadorAcceso:
+    PUBLIC
+    | PRIVATE
+    | PROTECTED
+    ;
+
+anotacionOverride:
+    ARROBA OVERRIDE
     ;
 
 /* --------- Bloques y sentencias --------- */
@@ -291,6 +301,17 @@ READLN: 'readln';
 
 PUBLIC: 'public';
 CLASS: 'class';
+
+/*ENCAPSULAMIENTO*/
+PRIVATE: 'private';
+PROTECTED: 'protected';
+
+/*HERENCIA*/
+EXTENDS: 'extends';
+
+/*POLIMORFISMO*/
+ARROBA: '@';
+OVERRIDE: 'Override';
 
 VOID: 'void';
 RETURN: 'return';

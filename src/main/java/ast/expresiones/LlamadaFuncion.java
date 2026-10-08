@@ -34,8 +34,10 @@ public class LlamadaFuncion extends Expresion {
         }
 
         if (ContextoC3D.esImpresion(getNombre())) {
-            for (String lugar : lugares) {
-                contexto.agregar("print", lugar, null, null);
+            boolean conSalto = ContextoC3D.imprimeConSalto(getNombre());
+            for (int i = 0; i < lugares.size(); i++) {
+                boolean ultimo = (i == lugares.size() - 1);
+                contexto.agregar("print", lugares.get(i), (conSalto && ultimo) ? "nl" : null, null);
             }
             return null;
         }
