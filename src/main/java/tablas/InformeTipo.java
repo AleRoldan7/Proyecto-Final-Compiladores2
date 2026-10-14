@@ -1,15 +1,14 @@
 package tablas;
 
 import ast.tipos.Tipo;
+import enums.ModificadorAcceso;
 import enums.TipoDato;
 import estructuras.TablaHash;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Getter
 @Setter
@@ -23,6 +22,10 @@ public class InformeTipo {
     private final List<MetodoRecord> constructores = new ArrayList<>();
     private final List<String> ordenAtributos = new ArrayList<>();
 
+    private String paquete = "";
+    private final Map<String, ModificadorAcceso> modificadoresAtributos = new HashMap<>();
+
+
     public InformeTipo(String nombre) {
         this(nombre, TipoDato.DESCONOCIDO);
     }
@@ -33,6 +36,7 @@ public class InformeTipo {
         this.categoria = categoria;
     }
 
+    /*
     public void agregarAtributo(String nombre, Tipo tipo) {
         atributos.put(nombre, tipo);
         ordenAtributos.add(nombre);
@@ -43,6 +47,21 @@ public class InformeTipo {
     }
      */
 
+    public void agregarAtributo(String nombre, Tipo tipo) {
+        atributos.put(nombre, tipo);
+        if (!ordenAtributos.contains(nombre)) {
+            ordenAtributos.add(nombre);
+        }
+    }
+
+    public void agregarAtributo(String nombre, Tipo tipo, ModificadorAcceso modificador) {
+        agregarAtributo(nombre, tipo);
+        modificadoresAtributos.put(nombre, modificador == null ? ModificadorAcceso.DEFAULT : modificador);
+    }
+
+    public ModificadorAcceso modificadorDeAtributo(String nombre) {
+        return modificadoresAtributos.getOrDefault(nombre, ModificadorAcceso.DEFAULT);
+    }
 
     public void agregarMetodo(MetodoRecord metodo) {
 

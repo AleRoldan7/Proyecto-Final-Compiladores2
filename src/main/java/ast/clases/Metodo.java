@@ -63,7 +63,6 @@ public class Metodo extends NodoAST {
             cuerpoMetodo.generarC3D(contexto);
         }
 
-        // Si es void y no hay return, el flujo cae en end_ (retorno implícito)
         contexto.cerrarFuncion(nombreFuncion);
 
         return null;

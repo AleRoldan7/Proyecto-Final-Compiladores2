@@ -610,6 +610,38 @@ public class VisitorPigLatin extends GrammarPigLatinBaseVisitor<NodoAST> {
     }
 
     @Override
+    public NodoAST visitDeclaracionObjeto(GrammarPigLatinParser.DeclaracionObjetoContext ctx) {
+
+        String nombreVariable = ctx.ID(0).getText();
+        String nombreTipo = ctx.ID(1).getText();   // el tipo explícito: esto x : ... : Persona
+
+        Tipo tipoDeclarado = new Tipo(linea(ctx), columna(ctx), nombreTipo, false, 0);
+
+        Expresion inicializacion;
+
+        if (ctx.creacionObjeto() != null) {
+
+            var creacion = ctx.creacionObjeto();
+
+            inicializacion = new CrearObjeto(
+                    linea(creacion), columna(creacion),
+                    creacion.ID().getText(),
+                    construirArgumentos(creacion.listaArgumentos())
+            );
+
+        } else {
+            inicializacion = new Literal(linea(ctx), columna(ctx), null, "null");
+        }
+
+        return new DeclaracionVariable(
+                linea(ctx), columna(ctx),
+                tipoDeclarado,
+                nombreVariable,
+                inicializacion
+        );
+    }
+
+    @Override
     public NodoAST visitLlamadaFuncion(GrammarPigLatinParser.LlamadaFuncionContext ctx) {
 
         return new LlamadaFuncion(

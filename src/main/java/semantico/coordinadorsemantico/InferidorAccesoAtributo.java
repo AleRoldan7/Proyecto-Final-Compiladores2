@@ -2,12 +2,16 @@ package semantico.coordinadorsemantico;
 
 import ast.expresiones.AccesoAtributo;
 import ast.tipos.Tipo;
+import enums.ModificadorAcceso;
 import enums.TipoDato;
 import lombok.AllArgsConstructor;
 import semantico.AnalisisContexto;
+import semantico.Herencia;
 import semantico.Tipos;
+import semantico.analizadores.AnalizadorModificadorAcceso;
 import semantico.interfazsemantica.InferirTipo;
 import tablas.InformeTipo;
+import tablas.TablaTipos;
 
 @AllArgsConstructor
 public class InferidorAccesoAtributo
@@ -15,6 +19,55 @@ public class InferidorAccesoAtributo
 
     private final InferirTipoCoordinador inferirTipoCoordinador;
 
+    @Override
+    public Tipo inferir(AccesoAtributo nodoAcceso, AnalisisContexto analisisContexto) {
+
+        Tipo tipoObjeto = inferirTipoCoordinador.inferir(nodoAcceso.getBase(), analisisContexto);
+
+        if (tipoObjeto == null || tipoObjeto.isArreglo()) {
+
+            analisisContexto.reportarError(nodoAcceso.getLinea(), nodoAcceso.getColumna(), "No se puede acceder al atributo '" + nodoAcceso.getAtributo()
+                    + "' de " + Tipos.describir(tipoObjeto, analisisContexto));
+
+            return null;
+        }
+
+        TablaTipos tipos = analisisContexto.getTablaTipos();
+        String atributo = nodoAcceso.getAtributo();
+
+        InformeTipo tipoContenedor = tipos.obtener(tipoObjeto.getNombre());
+        InformeTipo dueno = tipoContenedor == null ? null : Herencia.ownerDeAtributo(tipoContenedor, atributo, tipos);
+
+        if (dueno == null) {
+
+            analisisContexto.reportarError(nodoAcceso.getLinea(), nodoAcceso.getColumna(), "'" + tipoObjeto.getNombre() + "' no tiene un atributo '"
+                    + atributo + "'");
+
+            return null;
+        }
+
+        boolean esEstructura = dueno.getCategoria() == TipoDato.ESTRUCTURA;
+        ModificadorAcceso modificador = dueno.modificadorDeAtributo(atributo);
+        InformeTipo llamadora = analisisContexto.getClaseActual();
+
+        if (!esEstructura && !AnalizadorModificadorAcceso.puedeAcceder(modificador, dueno, llamadora, tipos)) {
+
+            analisisContexto.reportarError(nodoAcceso.getLinea(), nodoAcceso.getColumna(),
+                    AnalizadorModificadorAcceso.mensajeDenegado("atributo", atributo, dueno, modificador, llamadora));
+
+            return null;
+        }
+
+        nodoAcceso.setTipoContenedor(tipoObjeto.getNombre());
+        nodoAcceso.setContenedorEsEstructura(esEstructura);
+
+        Tipo tipoResultado = dueno.tipoDeAtributo(atributo);
+
+        nodoAcceso.setTipoResultado(convertirTipoDato(tipoResultado, analisisContexto));
+
+        return tipoResultado;
+    }
+    /*
     @Override
     public Tipo inferir(AccesoAtributo nodoAcceso, AnalisisContexto analisisContexto) {
 
@@ -50,6 +103,7 @@ public class InferidorAccesoAtributo
 
         return tipoResultado;
     }
+     */
 
     private TipoDato convertirTipoDato(Tipo tipo, AnalisisContexto analisisContexto) {
 

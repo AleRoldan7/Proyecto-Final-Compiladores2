@@ -13,7 +13,7 @@ public class AppPrincipal extends Application {
         Scene scene = new Scene(mainView,1200,700);
 
         scene.getStylesheets().add(getClass().getResource("/pintar/colores.css").toExternalForm());
-
+        scene.getStylesheets().add(getClass().getResource("/pintar/tablas.css").toExternalForm());
 
         stage.setTitle("Código 3 direcciones");
         stage.setScene(scene);

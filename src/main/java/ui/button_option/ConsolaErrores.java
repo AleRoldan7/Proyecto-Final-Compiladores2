@@ -12,12 +12,7 @@ import semantico.ErrorSemantico;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-/**
- * Panel tipo "Problems"/consola de un IDE: una fila por error/advertencia,
- * ya etiquetada con el archivo exacto donde ocurrió. Doble clic en una fila
- * navega a ese archivo (abriéndolo si hace falta) y posiciona el cursor en
- * la línea/columna reportadas.
- */
+
 public class ConsolaErrores extends BorderPane {
 
     private static final String PANEL = "#1E1E1E";
@@ -30,7 +25,6 @@ public class ConsolaErrores extends BorderPane {
     private final TableView<ErrorSemantico> tabla = new TableView<>();
     private final Label resumen = new Label();
 
-    /** (archivo, linea) -> el llamador decide cómo abrir/mover el cursor */
     private BiConsumer<String, Integer> onNavegar;
 
     public ConsolaErrores() {
@@ -116,11 +110,7 @@ public class ConsolaErrores extends BorderPane {
     }
 
     private void estilizar() {
-        tabla.setStyle(
-                "-fx-background-color: " + PANEL + ";" +
-                        "-fx-control-inner-background: " + PANEL + ";" +
-                        "-fx-text-fill: " + TEXTO + ";"
-        );
-        setStyle("-fx-border-color: " + BORDE + "; -fx-border-width: 1;");
+        tabla.getStyleClass().add("tabla-codex");
+        getStyleClass().add("vista-codex");
     }
 }

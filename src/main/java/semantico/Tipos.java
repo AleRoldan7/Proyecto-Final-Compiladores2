@@ -89,6 +89,16 @@ public class Tipos {
         return !esperado.isArreglo() && DOUBLE.equals(esperado.getNombre()) && INT.equals(real.getNombre());
     }
 
+    public static boolean sonCompatibles(Tipo esperado, Tipo real, AnalisisContexto contexto) {
+
+        if (sonCompatibles(esperado, real)) {
+            return true;
+        }
+
+        return esperado != null && real != null && !esperado.isArreglo() && !real.isArreglo()
+                && Herencia.esSubclaseDe(real.getNombre(), esperado.getNombre(), contexto.getTablaTipos());
+    }
+
     private static boolean esPrimitivo(Tipo tipo) {
         String n = tipo.getNombre();
         return INT.equals(n) || DOUBLE.equals(n) || CHAR.equals(n) || BOOLEAN.equals(n);
@@ -139,8 +149,6 @@ public class Tipos {
 
     }
 
-
-
     public static Tipo arreglo(int linea, int columna, String tipoBase, int dimensiones) {
 
         StringBuilder nombre = new StringBuilder(tipoBase);
@@ -190,19 +198,16 @@ public class Tipos {
 
         String nombre = base(tipo);
 
-        // 1. Nombres del dialecto del archivo que se analiza ahora (numerus en .pig)
         TipoDato primitivo = contexto.getDialecto().tipoPrimitivo(nombre);
         if (primitivo != null) {
             return primitivo;
         }
 
-        // 2. Nombres que vienen de otro archivo importado (Pila.z devuelve "int")
         primitivo = primitivoDeCualquierDialecto(nombre);
         if (primitivo != null) {
             return primitivo;
         }
 
-        // 3. Clases
         return contexto.getTablaTipos().existeTipo(nombre) ? TipoDato.OBJETO : null;
     }
 
@@ -216,7 +221,7 @@ public class Tipos {
                 try {
                     lista.add(Dialectos.de(archivo));
                 } catch (RuntimeException e) {
-                    // Tipo de archivo sin dialecto (DESCONOCIDO): se omite
+                    e.printStackTrace();
                 }
             }
 
@@ -297,6 +302,10 @@ public class Tipos {
         }
 
         if (base(esperado).equals(base(real))) {
+            return true;
+        }
+
+        if (Herencia.esSubclaseDe(base(real), base(esperado), contexto.getTablaTipos())) {
             return true;
         }
 

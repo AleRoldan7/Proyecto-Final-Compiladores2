@@ -22,6 +22,8 @@ import ui.button_option.TablaSimbolosView;
 import ui.button_option.TablaTiposView;
 import utils.arbol_de_trabajo.ArbolDeTrabajo;
 import utils.coloreado.SintaxColoreado;
+import ui.button_option.PanelRiscV;
+import ui.button_option.TablaCuartetasView;
 
 import java.io.File;
 import java.io.IOException;
@@ -578,7 +580,8 @@ public class MainView extends BorderPane {
             String textoC3D = GeneradorC3DCompleto.comoTexto(cuartetas);
             String codigoC = GenerarCodigoC.traducir(cuartetas);
 
-            mostrarVista(crearVistaC3D(cuartetas, textoC3D, codigoC));
+            Path archivoS = carpetaSalida.resolve(nombreBase + ".s");
+            mostrarVista(crearVistaC3D(cuartetas, textoC3D, codigoC, archivoS));
             mostrarEstado("C3D generado en la carpeta salida/", EXITO);
 
         } catch (Exception ex) {
@@ -613,14 +616,18 @@ public class MainView extends BorderPane {
         return dialogo.showAndWait().orElse(null);
     }
 
-    private TabPane crearVistaC3D(List<Cuarteta> cuartetas, String c3d, String codigoC) {
+    private TabPane crearVistaC3D(List<Cuarteta> cuartetas, String c3d, String codigoC, Path archivoS) {
 
         TabPane pestanas = new TabPane();
-
+        pestanas.getStyleClass().add("tabs-codex");
         pestanas.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        pestanas.getTabs().addAll(new Tab("Cuartetas", crearTablaCuartetas(cuartetas)), new Tab("C3D", crearAreaSalida(c3d)),
-                new Tab("Código C", crearAreaSalida(codigoC)));
+        pestanas.getTabs().addAll(
+                new Tab("Cuartetas", new TablaCuartetasView(cuartetas)),
+                new Tab("C3D", crearAreaSalida(c3d)),
+                new Tab("Código C", crearAreaSalida(codigoC)),
+                new Tab("RISC-V", new PanelRiscV(archivoS))
+        );
 
         return pestanas;
     }

@@ -55,9 +55,6 @@ public class TablaTiposView extends BorderPane {
         setCenter(envolver());
     }
 
-    // ============================================================
-    // TABLA PRINCIPAL
-    // ============================================================
 
     private void construirTablaPrincipal() {
         TableColumn<InformeTipo, String> colNombre = columna(tablaTipos, "Nombre", InformeTipo::getNombre);
@@ -90,12 +87,8 @@ public class TablaTiposView extends BorderPane {
         return total;
     }
 
-    // ============================================================
-    // TABLAS DE DETALLE
-    // ============================================================
 
     private void construirTablasDetalle() {
-        // --- Atributos: nombre / tipo ---
         TableColumn<Map.Entry<String, String>, String> colAttrNombre =
                 columna(tablaAtributos, "Nombre", Map.Entry::getKey);
         TableColumn<Map.Entry<String, String>, String> colAttrTipo =
@@ -106,10 +99,8 @@ public class TablaTiposView extends BorderPane {
         tablaAtributos.setPlaceholder(crearPlaceholder("Sin atributos"));
         estilizarTabla(tablaAtributos);
 
-        // --- Métodos: nombre / retorno / parámetros (una fila por sobrecarga) ---
         construirTablaFirmas(tablaMetodos, "Sin métodos");
 
-        // --- Constructores: retorno / parámetros ---
         construirTablaFirmas(tablaConstructores, "Sin constructores");
     }
 
@@ -164,10 +155,6 @@ public class TablaTiposView extends BorderPane {
         datosConstructores.clear();
     }
 
-    // ============================================================
-    // HELPERS
-    // ============================================================
-
     private <T> TableColumn<T, String> columna(TableView<T> tablaDestino, String titulo, Function<T, String> extractor) {
         TableColumn<T, String> col = new TableColumn<>(titulo);
         col.setCellValueFactory(d -> new SimpleStringProperty(extractor.apply(d.getValue())));
@@ -175,43 +162,37 @@ public class TablaTiposView extends BorderPane {
     }
 
     private void estilizarTabla(TableView<?> tabla) {
-        tabla.setStyle(
-                "-fx-control-inner-background: " + PANEL + ";" +
-                        "-fx-background-color: " + PANEL + ";" +
-                        "-fx-table-cell-border-color: " + BORDE + ";" +
-                        "-fx-text-fill: " + TEXTO + ";"
-        );
-        tabla.setFixedCellSize(-1);
+        tabla.getStyleClass().add("tabla-codex");
+        tabla.setFixedCellSize(34);
     }
 
-    private VBox envolver() {
-        Label tituloAtributos = etiquetaSeccion("Atributos");
-        Label tituloMetodos = etiquetaSeccion("Métodos");
-        Label tituloConstructores = etiquetaSeccion("Constructores");
+    private ScrollPane envolver() {
+        Label titulo = new Label("Tabla de tipos");
+        titulo.getStyleClass().add("titulo-vista");
 
         VBox contenedor = new VBox(10,
+                titulo,
                 tablaTipos,
-                tituloAtributos, tablaAtributos,
-                tituloMetodos, tablaMetodos,
-                tituloConstructores, tablaConstructores);
-        contenedor.setPadding(new Insets(10));
-        contenedor.setStyle("-fx-background-color: " + SUPERFICIE + ";");
-        return contenedor;
+                etiquetaSeccion("Atributos"), tablaAtributos,
+                etiquetaSeccion("Métodos"), tablaMetodos,
+                etiquetaSeccion("Constructores"), tablaConstructores);
+        contenedor.setPadding(new Insets(4, 8, 4, 4));
+
+        ScrollPane scroll = new ScrollPane(contenedor);
+        scroll.setFitToWidth(true);
+        scroll.getStyleClass().add("scroll-codex");
+        return scroll;
     }
 
     private Label etiquetaSeccion(String texto) {
-        Label label = new Label(texto);
-        label.setStyle("-fx-text-fill: " + TEXTO_SECUNDARIO + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        Label label = new Label(texto.toUpperCase());
+        label.getStyleClass().add("seccion-vista");
         return label;
     }
 
     private Label crearPlaceholder(String texto) {
         Label label = new Label(texto);
-        label.setStyle(
-                "-fx-text-fill: " + TEXTO_SECUNDARIO + ";" +
-                        "-fx-font-size: 13px;" +
-                        "-fx-font-family: 'Arial';"
-        );
+        label.getStyleClass().add("placeholder-vista");
         return label;
     }
 }

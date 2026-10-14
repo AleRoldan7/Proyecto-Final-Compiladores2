@@ -35,6 +35,12 @@ public class AnalizadorDeclaracionVariable implements AnalizadorSemantico<Declar
             analisisContexto.getTablaSimbolos().declarar(nombre, Categoria.VARIABLE, Tipos.describir(nodoVariable.getTipo(), analisisContexto), "", nodoVariable.getLinea());
         }
 
+        if (nodoVariable.getTipo() != null && Tipos.canonico(nodoVariable.getTipo(), analisisContexto) == null) {
+
+            analisisContexto.reportarError(nodoVariable.getLinea(), nodoVariable.getColumna(),
+                    "El tipo '" + nodoVariable.getTipo().getNombre() + "' no existe (¿falta el import?)");
+        }
+
         Expresion inicializacion = nodoVariable.getInicializacion();
 
         /*
@@ -71,8 +77,8 @@ public class AnalizadorDeclaracionVariable implements AnalizadorSemantico<Declar
         if (!Tipos.asignable(tipoVariable, tipoInicializacion, analisisContexto)) {
 
             analisisContexto.reportarError(nodoVariable.getLinea(), nodoVariable.getColumna(),
-                    "No se puede inicializar '" + nombre + "' de tipo" + Tipos.describir(tipoVariable, analisisContexto) +
-                    " con un valor de tipo " + Tipos.describir(tipoInicializacion, analisisContexto));
+                    "No se puede inicializar '" + nombre + "' de tipo " + Tipos.describir(tipoVariable, analisisContexto) +
+                            " con un valor de tipo " + Tipos.describir(tipoInicializacion, analisisContexto));
         }
     }
 

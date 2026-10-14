@@ -50,6 +50,10 @@ public class ContextoC3D {
     private final Map<String, String> llamadasPendientes = new LinkedHashMap<>();
     private final Map<String, Set<String>> clasesPorMetodo = new HashMap<>();
 
+    private final Map<String, DefinicionClase> definicionesClase = new LinkedHashMap<>();
+    private record DefinicionClase(String superclase, List<String> atributos, List<TipoDato> tipos) {}
+
+
     // ---------- Inicio / globales ----------
     private boolean programaIniciado = false;
     private boolean programaFinalizado = false;
@@ -648,25 +652,25 @@ public class ContextoC3D {
     // =====================================================
     //  Objetos en el heap
     // =====================================================
+
+    public void registrarClase(String clase, String superclase, List<String> atributos, List<TipoDato> tipos) {
+        definicionesClase.put(clase, new DefinicionClase(superclase, atributos, tipos));
+        disposiciones.remove(clase);
+        tiposAtributo.remove(clase);
+    }
+
     public void registrarClase(String clase, List<String> atributos) {
-        registrarClase(clase, atributos, null);
+        registrarClase(clase, null, atributos, null);
     }
 
     public void registrarClase(String clase, List<String> atributos, List<TipoDato> tipos) {
-        Map<String, Integer> mapa = new LinkedHashMap<>();
-        Map<String, TipoDato> tiposMapa = new LinkedHashMap<>();
-        int desplazamiento = 0;
-        for (int i = 0; i < atributos.size(); i++) {
-            String atributo = atributos.get(i);
-            mapa.put(atributo, desplazamiento++);
-            TipoDato tipo = (tipos != null && i < tipos.size()) ? tipos.get(i) : TipoDato.DESCONOCIDO;
-            tiposMapa.put(atributo, tipo);
-        }
-        disposiciones.put(clase, mapa);
-        tiposAtributo.put(clase, tiposMapa);
+        registrarClase(clase, null, atributos, tipos);
     }
 
     public TipoDato tipoDeAtributo(String clase, String atributo) {
+        if (definicionesClase.containsKey(clase)) {
+            asegurarDisposicion(clase, new HashSet<>());
+        }
         Map<String, TipoDato> tiposMapa = tiposAtributo.get(clase);
         if (tiposMapa == null) {
             return TipoDato.DESCONOCIDO;
@@ -674,12 +678,76 @@ public class ContextoC3D {
         return tiposMapa.getOrDefault(atributo, TipoDato.DESCONOCIDO);
     }
 
+    /*
     private Map<String, Integer> disposicion(String clase) {
         Map<String, Integer> mapa = disposiciones.get(clase);
         if (mapa == null) {
             throw new IllegalStateException("La clase '" + clase + "' no tiene disposición en el heap (¿se generó antes su archivo?)");
         }
         return mapa;
+    }
+     */
+
+    private void asegurarDisposicion(String clase, Set<String> visitando) {
+        if (disposiciones.containsKey(clase)) {
+            return;
+        }
+
+        DefinicionClase def = definicionesClase.get(clase);
+        if (def == null) {
+            throw new IllegalStateException("La clase '" + clase
+                    + "' no tiene disposición en el heap (¿se registró su archivo?)");
+        }
+
+        if (!visitando.add(clase)) {
+            throw new IllegalStateException("Herencia circular en la clase '" + clase + "'");
+        }
+
+        Map<String, Integer> mapa = new LinkedHashMap<>();
+        Map<String, TipoDato> tiposMapa = new LinkedHashMap<>();
+        int desplazamiento = 0;
+
+        // 1) Atributos heredados, en las mismas posiciones que en el padre
+        String padre = def.superclase();
+        if (padre != null) {
+            if (!definicionesClase.containsKey(padre)) {
+                throw new IllegalStateException("La superclase '" + padre
+                        + "' de '" + clase + "' no existe");
+            }
+            asegurarDisposicion(padre, visitando);
+
+            Map<String, Integer> mapaPadre = disposiciones.get(padre);
+            Map<String, TipoDato> tiposPadre = tiposAtributo.get(padre);
+
+            for (Map.Entry<String, Integer> e : mapaPadre.entrySet()) {
+                mapa.put(e.getKey(), e.getValue());
+                tiposMapa.put(e.getKey(), tiposPadre.getOrDefault(e.getKey(), TipoDato.DESCONOCIDO));
+            }
+            desplazamiento = mapaPadre.size();
+        }
+
+        // 2) Atributos propios, a partir de la posición siguiente
+        List<String> atributos = def.atributos();
+        List<TipoDato> tipos = def.tipos();
+        for (int i = 0; i < atributos.size(); i++) {
+            String atributo = atributos.get(i);
+            if (mapa.containsKey(atributo)) {
+                throw new IllegalStateException("La clase '" + clase + "' redeclara el atributo '"
+                        + atributo + "' (ocultamiento no soportado)");
+            }
+            mapa.put(atributo, desplazamiento++);
+            TipoDato tipo = (tipos != null && i < tipos.size()) ? tipos.get(i) : TipoDato.DESCONOCIDO;
+            tiposMapa.put(atributo, tipo);
+        }
+
+        disposiciones.put(clase, mapa);
+        tiposAtributo.put(clase, tiposMapa);
+        visitando.remove(clase);
+    }
+
+    private Map<String, Integer> disposicion(String clase) {
+        asegurarDisposicion(clase, new HashSet<>());
+        return disposiciones.get(clase);
     }
 
     public int tamanio(String clase) {
@@ -763,8 +831,11 @@ public class ContextoC3D {
             return desplazamiento(clase, atributo);
         }
 
-        Integer encontrado = null;
+        for (String c : definicionesClase.keySet()) {
+            asegurarDisposicion(c, new HashSet<>());
+        }
 
+        Integer encontrado = null;
         for (Map<String, Integer> mapa : disposiciones.values()) {
             Integer d = mapa.get(atributo);
             if (d == null) continue;
@@ -778,7 +849,6 @@ public class ContextoC3D {
         if (encontrado == null) {
             throw new IllegalStateException("Ninguna clase tiene el atributo '" + atributo + "'");
         }
-
         return encontrado;
     }
 

@@ -31,6 +31,7 @@ public class AnalisisContexto {
     private InformeTipo claseActual;
     private Tipo tipoRetorno;
     private Dialecto dialecto = Dialectos.ZETARIANO;
+    private String paqueteActual = "";
 
     public AnalisisContexto(TablaSimbolos tablaSimbolos, TablaTipos tablaTipos) {
         this.tablaSimbolos = tablaSimbolos;

@@ -8,35 +8,50 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import tablas.FilaTabla;
-import tablas.TablaSimbolos;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 public class TablaSimbolosView extends BorderPane {
 
-    private static final String SUPERFICIE = "#1A1A1A";
-    private static final String PANEL = "#1E1E1E";
-    private static final String TEXTO = "#ECECEC";
-    private static final String TEXTO_SECUNDARIO = "#9A9A9A";
-    private static final String BORDE = "#2A2A2A";
+    private static final Map<String, String> CLASE_POR_CATEGORIA = Map.of(
+            "Variable", "badge-teal",
+            "Parámetro", "badge-ambar",
+            "Función", "badge-azul",
+            "Estructura", "badge-lila",
+            "Campo de estructura", "badge-lila",
+            "Atributo", "badge-teal",
+            "Campo", "badge-teal",
+            "Clase", "badge-ambar",
+            "Constructor", "badge-verde",
+            "Método", "badge-azul");
 
     private final ObservableList<FilaTabla> datos = FXCollections.observableArrayList();
+    private final FilteredList<FilaTabla> filtradas = new FilteredList<>(datos, f -> true);
     private final TableView<FilaTabla> tableView = new TableView<>();
     private final ComboBox<String> filtroCategoria = new ComboBox<>();
+    private final TextField campoBusqueda = new TextField();
     private final Label contadorLabel = new Label();
+    private VBox contenido;
 
     public TablaSimbolosView() {
+        getStyleClass().add("vista-codex");
         setPadding(new Insets(16));
-        setStyle("-fx-background-color: transparent;");
         construirColumnas();
-        estilizarTabla();
+        configurarFiltros();
         setCenter(crearPlaceholder("Compila un programa para ver la tabla de símbolos"));
     }
 
@@ -47,21 +62,44 @@ public class TablaSimbolosView extends BorderPane {
         }
 
         datos.setAll(filas);
+        filtroCategoria.setValue("Todo");
+        campoBusqueda.clear();
+        aplicarFiltros();
 
-        FilteredList<FilaTabla> filtradas = new FilteredList<>(datos, f -> true);
+        if (contenido == null) {
+            contenido = construirContenido();
+        }
+        setCenter(contenido);
+    }
+
+    // ---------------- filtros ----------------
+
+    private void configurarFiltros() {
         filtroCategoria.setItems(FXCollections.observableArrayList(
                 "Todo", "Variables", "Parámetros", "Funciones", "Estructuras",
                 "Campos de estructura", "Atributos", "Campos", "Clases",
                 "Constructores", "Métodos"));
         filtroCategoria.setValue("Todo");
-        filtroCategoria.valueProperty().addListener((obs, viejo, nuevo) ->
-                filtradas.setPredicate(f -> coincideCategoria(f.getCategoria(), nuevo)));
+        filtroCategoria.getStyleClass().add("combo-codex");
+        filtroCategoria.valueProperty().addListener((obs, viejo, nuevo) -> aplicarFiltros());
+
+        campoBusqueda.setPromptText("Buscar por nombre…");
+        campoBusqueda.getStyleClass().add("campo-codex");
+        campoBusqueda.textProperty().addListener((obs, viejo, nuevo) -> aplicarFiltros());
 
         tableView.setItems(filtradas);
-        contadorLabel.textProperty().bind(
-                Bindings.size(filtradas).asString("%d símbolo(s) mostrados"));
+        contadorLabel.getStyleClass().add("contador-vista");
+        contadorLabel.textProperty().bind(Bindings.size(filtradas).asString("%d símbolo(s)"));
+    }
 
-        setCenter(envolver());
+    private void aplicarFiltros() {
+        String categoria = filtroCategoria.getValue() == null ? "Todo" : filtroCategoria.getValue();
+        String texto = campoBusqueda.getText() == null ? "" : campoBusqueda.getText().trim().toLowerCase();
+
+        filtradas.setPredicate(f ->
+                coincideCategoria(f.getCategoria(), categoria)
+                        && (texto.isEmpty()
+                        || (f.getNombre() != null && f.getNombre().toLowerCase().contains(texto))));
     }
 
     private boolean coincideCategoria(Categoria c, String filtro) {
@@ -80,31 +118,93 @@ public class TablaSimbolosView extends BorderPane {
         };
     }
 
+    // ---------------- columnas ----------------
+
     private void construirColumnas() {
-        TableColumn<FilaTabla, String> colNombre = columna("Nombre", FilaTabla::getNombre);
-        TableColumn<FilaTabla, String> colCategoria = columna("Categoría",
-                f -> formatearCategoria(f.getCategoria()));
-        TableColumn<FilaTabla, String> colTipo = columna("Tipo", f ->
-                f.getTipo() == null || f.getTipo().isBlank() ? "—" : f.getTipo());
-        TableColumn<FilaTabla, String> colDetalle = columna("Detalle", f ->
-                f.getDetalle() == null || f.getDetalle().isBlank() ? "—" : f.getDetalle());
+        tableView.getStyleClass().add("tabla-codex");
+        tableView.setFixedCellSize(-1);
 
-        colDetalle.setPrefWidth(350);
+        TableColumn<FilaTabla, String> colNombre =
+                columnaTexto("Nombre", FilaTabla::getNombre, "texto-nombre", 150);
+        TableColumn<FilaTabla, String> colCategoria = columnaInsignia("Categoría",
+                f -> formatearCategoria(f.getCategoria()), 150);
+        TableColumn<FilaTabla, String> colTipo = columnaTexto("Tipo",
+                f -> vacioComoRaya(f.getTipo()), "texto-tipo", 110);
+        TableColumn<FilaTabla, String> colDetalle = columnaDetalle();
+        TableColumn<FilaTabla, String> colAmbito =
+                columnaTexto("Ámbito", FilaTabla::getAmbito, "texto-suave", 130);
+        TableColumn<FilaTabla, String> colLinea = columnaTexto("Línea",
+                f -> String.valueOf(f.getLinea()), "texto-numero", 70);
 
-        colDetalle.setCellFactory(column -> new TableCell<>() {
+        tableView.getColumns().addAll(colNombre, colCategoria, colTipo, colDetalle, colAmbito, colLinea);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        tableView.setPlaceholder(crearPlaceholder("Sin resultados para este filtro"));
+    }
+
+    private TableColumn<FilaTabla, String> columnaTexto(String titulo, Function<FilaTabla, String> extractor,
+                                                        String claseCss, double ancho) {
+        TableColumn<FilaTabla, String> col = new TableColumn<>(titulo);
+        col.setCellValueFactory(d -> new SimpleStringProperty(extractor.apply(d.getValue())));
+        col.setPrefWidth(ancho);
+        col.setCellFactory(c -> new TableCell<>() {
+            {
+                getStyleClass().add(claseCss);
+            }
+
+            @Override
+            protected void updateItem(String item, boolean vacia) {
+                super.updateItem(item, vacia);
+                setText(vacia || item == null ? null : item);
+            }
+        });
+        return col;
+    }
+
+    private TableColumn<FilaTabla, String> columnaInsignia(String titulo, Function<FilaTabla, String> extractor,
+                                                           double ancho) {
+        TableColumn<FilaTabla, String> col = new TableColumn<>(titulo);
+        col.setCellValueFactory(d -> new SimpleStringProperty(extractor.apply(d.getValue())));
+        col.setPrefWidth(ancho);
+        col.setCellFactory(c -> new TableCell<>() {
+            private final Label insignia = new Label();
+
+            {
+                insignia.getStyleClass().add("badge");
+            }
+
+            @Override
+            protected void updateItem(String item, boolean vacia) {
+                super.updateItem(item, vacia);
+                if (vacia || item == null) {
+                    setGraphic(null);
+                    return;
+                }
+                insignia.setText(item);
+                insignia.getStyleClass().removeIf(s -> s.startsWith("badge-"));
+                insignia.getStyleClass().add(CLASE_POR_CATEGORIA.getOrDefault(item, "badge-gris"));
+                setGraphic(insignia);
+            }
+        });
+        return col;
+    }
+
+    private TableColumn<FilaTabla, String> columnaDetalle() {
+        TableColumn<FilaTabla, String> col = new TableColumn<>("Detalle");
+        col.setCellValueFactory(d -> new SimpleStringProperty(vacioComoRaya(d.getValue().getDetalle())));
+        col.setPrefWidth(340);
+        col.setCellFactory(column -> new TableCell<>() {
             private final Label label = new Label();
 
             {
                 label.setWrapText(true);
-                label.setMaxWidth(Double.MAX_VALUE);
-                label.setStyle("-fx-text-fill: " + TEXTO + ";");
+                label.setStyle("-fx-text-fill: #D8D8D8;");
+                label.prefWidthProperty().bind(column.widthProperty().subtract(24));
             }
 
             @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-
-                if (empty || item == null) {
+            protected void updateItem(String item, boolean vacia) {
+                super.updateItem(item, vacia);
+                if (vacia || item == null) {
                     setGraphic(null);
                 } else {
                     label.setText(item);
@@ -112,14 +212,7 @@ public class TablaSimbolosView extends BorderPane {
                 }
             }
         });
-        TableColumn<FilaTabla, String> colAmbito = columna("Ámbito", FilaTabla::getAmbito);
-        TableColumn<FilaTabla, String> colLinea = columna("Línea", f -> String.valueOf(f.getLinea()));
-        colLinea.setPrefWidth(60);
-
-        tableView.getColumns().addAll(colNombre, colCategoria, colTipo, colDetalle, colAmbito, colLinea);
-        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        tableView.setPrefHeight(420);
-        tableView.setPlaceholder(crearPlaceholder("Sin resultados para este filtro"));
+        return col;
     }
 
     private String formatearCategoria(Categoria c) {
@@ -130,51 +223,36 @@ public class TablaSimbolosView extends BorderPane {
             case ESTRUCTURA -> "Estructura";
             case CAMPO_ESTRUCTURA -> "Campo de estructura";
             case ATRIBUTO -> "Atributo";
-            case CAMPO ->  "Campo";
-            case CLASE ->  "Clase";
-            case CONSTRUCTOR ->  "Constructor";
-            case METODO -> "Metodo";
+            case CAMPO -> "Campo";
+            case CLASE -> "Clase";
+            case CONSTRUCTOR -> "Constructor";
+            case METODO -> "Método";
         };
     }
 
-    private TableColumn<FilaTabla, String> columna(
-            String titulo, Function<FilaTabla, String> extractor) {
-        TableColumn<FilaTabla, String> col = new TableColumn<>(titulo);
-        col.setCellValueFactory(d -> new SimpleStringProperty(extractor.apply(d.getValue())));
-        return col;
+    private String vacioComoRaya(String texto) {
+        return texto == null || texto.isBlank() ? "—" : texto;
     }
 
-    private void estilizarTabla() {
-        tableView.setStyle(
-                "-fx-control-inner-background: " + PANEL + ";" +
-                        "-fx-background-color: " + PANEL + ";" +
-                        "-fx-table-cell-border-color: " + BORDE + ";" +
-                        "-fx-text-fill: " + TEXTO + ";"
-        );
 
-        tableView.setFixedCellSize(-1);
-    }
+    private VBox construirContenido() {
+        Label titulo = new Label("Tabla de símbolos");
+        titulo.getStyleClass().add("titulo-vista");
 
-    private VBox envolver() {
-        HBox filtroBar = new HBox(8, new Label("Filtrar:"), filtroCategoria, contadorLabel);
-        filtroBar.setAlignment(Pos.CENTER_LEFT);
-        filtroBar.getChildren().get(0).setStyle("-fx-text-fill: " + TEXTO_SECUNDARIO + ";");
-        contadorLabel.setStyle("-fx-text-fill: " + TEXTO_SECUNDARIO + "; -fx-font-size: 11px;");
-        HBox.setMargin(contadorLabel, new Insets(0, 0, 0, 12));
+        Region espacio = new Region();
+        HBox.setHgrow(espacio, Priority.ALWAYS);
 
-        VBox contenedor = new VBox(8, filtroBar, tableView);
-        contenedor.setPadding(new Insets(10));
-        contenedor.setStyle("-fx-background-color: " + SUPERFICIE + ";");
-        return contenedor;
+        HBox barra = new HBox(10, titulo, contadorLabel, espacio, campoBusqueda, filtroCategoria);
+        barra.setAlignment(Pos.CENTER_LEFT);
+
+        VBox caja = new VBox(12, barra, tableView);
+        VBox.setVgrow(tableView, Priority.ALWAYS);
+        return caja;
     }
 
     private Label crearPlaceholder(String texto) {
         Label label = new Label(texto);
-        label.setStyle(
-                "-fx-text-fill: " + TEXTO_SECUNDARIO + ";" +
-                        "-fx-font-size: 13px;" +
-                        "-fx-font-family: 'Arial';"
-        );
+        label.getStyleClass().add("placeholder-vista");
         return label;
     }
 }

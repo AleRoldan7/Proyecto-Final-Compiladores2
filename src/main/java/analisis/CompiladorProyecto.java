@@ -3,6 +3,8 @@ package analisis;
 import ast.NodoAST;
 import c3d.GeneradorC3DCompleto;
 import enums.TipoArchivo;
+import lombok.Getter;
+import lombok.Setter;
 import semantico.AnalisisContexto;
 import semantico.ErrorSemantico;
 import semantico.analizadores.AnalizadorClase;
@@ -18,14 +20,16 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Getter
+@Setter
 public class CompiladorProyecto {
 
     private final CompiladorArchivo compiladorArchivo = new CompiladorArchivo();
     private final Map<File, List<File>> importsPorPig = new HashMap<>();
-    public ResultadoProyecto compilar(
-            Map<TipoArchivo, List<File>> archivosPorTipo,
-            Function<File, String> proveedorContenido
-    ) {
+    private String paqueteActual = "";
+
+
+    public ResultadoProyecto compilar(Map<TipoArchivo, List<File>> archivosPorTipo, Function<File, String> proveedorContenido) {
 
         ResultadoProyecto resultado = new ResultadoProyecto();
         importsPorPig.clear();
@@ -73,10 +77,8 @@ public class CompiladorProyecto {
     }
 
 
-    private void compilarZ(
-            Map<TipoArchivo, List<File>> archivosPorTipo,
-            Function<File, String> proveedorContenido,
-            ResultadoProyecto resultado) {
+    private void compilarZ(Map<TipoArchivo, List<File>> archivosPorTipo, Function<File, String> proveedorContenido,
+                           ResultadoProyecto resultado) {
 
         List<File> archivos = archivosPorTipo.get(TipoArchivo.ZETARIANO);
         if (archivos == null || archivos.isEmpty()) return;
@@ -92,18 +94,16 @@ public class CompiladorProyecto {
         for (File archivo : archivos) {
             try {
                 String codigo = proveedorContenido.apply(archivo);
-                AnalisisContexto ctx = AnalisisContexto.paraArchivo(
-                        archivo.getName(), TipoArchivo.ZETARIANO);
+                AnalisisContexto ctx = AnalisisContexto.paraArchivo(archivo.getName(), TipoArchivo.ZETARIANO);
+                ctx.setPaqueteActual(paqueteDe(archivo));
 
-                NodoAST ast = compiladorArchivo.analizarSinSemantica(
-                        codigo, TipoArchivo.ZETARIANO, ctx);
+                NodoAST ast = compiladorArchivo.analizarSinSemantica(codigo, TipoArchivo.ZETARIANO, ctx);
 
                 registros.add(new RegistroZ(archivo, codigo, ctx, ast));
                 resultado.registrarContexto(archivo, ctx);
                 resultado.registrarAst(archivo, ast);
 
-                System.out.println("[PASADA 1] Parseado OK: " + archivo.getName() +
-                        " | clases en AST: " +
+                System.out.println("[PASADA 1] Parseado OK: " + archivo.getName() + " | clases en AST: " +
                         ((ast instanceof ast.Programa p) ? p.getClases().size() : "?"));
 
             } catch (Exception e) {
@@ -112,8 +112,7 @@ public class CompiladorProyecto {
             }
         }
 
-        AnalizadorSemanticoCoordinador coordinador = new AnalizadorSemanticoCoordinador(
-                new InferirTipoCoordinador());
+        AnalizadorSemanticoCoordinador coordinador = new AnalizadorSemanticoCoordinador(new InferirTipoCoordinador());
 
         AnalizadorClase analizadorClase = new AnalizadorClase(coordinador);
 
@@ -158,6 +157,7 @@ public class CompiladorProyecto {
             }
         }
     }
+
 
 
     private void compilarPigSinSemantica(
@@ -329,6 +329,11 @@ public class CompiladorProyecto {
         }
 
         return fuentes;
+    }
+
+    private static String paqueteDe(File archivo) {
+        File carpeta = archivo.getAbsoluteFile().getParentFile();
+        return carpeta == null ? "" : carpeta.getAbsolutePath();
     }
 
     private boolean compiladoSinErrores(File archivo, ResultadoProyecto resultado) {

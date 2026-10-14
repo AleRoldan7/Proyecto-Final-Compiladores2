@@ -59,7 +59,9 @@ public class Clase extends NodoAST {
             nombres.add(atributo.getNombreAtributo());
             tipos.add(ConversorTipos.aTipoDato(atributo.getTipo()));
         }
-        contexto.registrarClase(nombreClase, nombres, tipos);
+
+        String padre = (superClase == null || superClase.isBlank()) ? null : superClase.trim();
+        contexto.registrarClase(nombreClase, padre, nombres, tipos);
 
         contexto.registrarFuncion(ContextoC3D.nombreConstructor(nombreClase));
 
@@ -93,7 +95,6 @@ public class Clase extends NodoAST {
 
         String nombreFuncion = ContextoC3D.nombreConstructor(nombreClase);
 
-        // Solo recibe "self"; el cuerpo está vacío y el retorno es caer en end_
         contexto.abrirFuncion(nombreFuncion, List.of("self"), List.of(TipoDato.OBJETO));
         contexto.cerrarFuncion(nombreFuncion);
     }

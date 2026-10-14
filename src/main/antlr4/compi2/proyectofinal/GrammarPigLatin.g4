@@ -19,6 +19,11 @@ seccionVariables:
 declaracion:
     declaracionVariable
     | declaracionArreglo
+    | declaracionObjeto
+    ;
+
+declaracionObjeto:
+    ESTO ID DOSPUNTOS (creacionObjeto | NULL) DOSPUNTOS ID PUNTO_COMA?
     ;
 
 declaracionVariable:
@@ -82,6 +87,7 @@ seccionMain:
 
 sentencia:
     declaracionVariable
+    | declaracionObjeto
     | declaracionArreglo
     | asignacion
     | condicional
