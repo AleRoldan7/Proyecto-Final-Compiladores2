@@ -37,28 +37,19 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
         }
 
         InformeTipo infoClase = new InformeTipo(nombreClase, TipoDato.OBJETO);
+        infoClase.setNombreSuperClase(nodoClase.getSuperClase());
 
         for (var atributo : nodoClase.getAtributos()) {
-            infoClase.agregarAtributo(
-                    atributo.getNombreAtributo(),
-                    atributo.getTipo()
-            );
+            infoClase.agregarAtributo(atributo.getNombreAtributo(), atributo.getTipo());
         }
 
         for (Metodo metodo : nodoClase.getMetodos()) {
-            infoClase.agregarMetodo(new MetodoRecord(
-                    metodo.getNombreMetodo(),
-                    metodo.getTipoRetorno(),
-                    metodo.getParametros()
-            ));
+            infoClase.agregarMetodo(new MetodoRecord(metodo.getNombreMetodo(), metodo.getTipoRetorno(), metodo.getParametros(),
+                    metodo.getModificadorAcceso()));
         }
 
         for (Constructor constructor : nodoClase.getConstructores()) {
-            infoClase.agregarConstructor(new MetodoRecord(
-                    nombreClase,
-                    null,
-                    constructor.getParametros()
-            ));
+            infoClase.agregarConstructor(new MetodoRecord(nombreClase, null, constructor.getParametros(), null));
         }
 
         analisisContexto.getTablaTipos().registrar(infoClase);
@@ -68,13 +59,12 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
     public void analizar(Clase nodoClase, AnalisisContexto analisisContexto) {
 
         String nombreClase = nodoClase.getNombreClase();
-
-
         InformeTipo infoClase;
 
         if (analisisContexto.getTablaTipos().existeTipo(nombreClase)) {
 
             infoClase = analisisContexto.getTablaTipos().obtener(nombreClase);
+            validarHerencia(nodoClase, analisisContexto);
 
         } else {
 
@@ -91,7 +81,8 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
                 infoClase.agregarMetodo(new MetodoRecord(
                         metodo.getNombreMetodo(),
                         metodo.getTipoRetorno(),
-                        metodo.getParametros()
+                        metodo.getParametros(),
+                        metodo.getModificadorAcceso()
                 ));
             }
 
@@ -99,7 +90,8 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
                 infoClase.agregarConstructor(new MetodoRecord(
                         nombreClase,
                         null,
-                        constructor.getParametros()
+                        constructor.getParametros(),
+                        null
                 ));
             }
 
@@ -157,6 +149,28 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
             } else {
                 firmasVistas.add(firma);
             }
+        }
+    }
+
+    private void validarHerencia(Clase nodoClase, AnalisisContexto analisisContexto) {
+
+        String nombreSuperClase = nodoClase.getSuperClase();
+
+        if (nombreSuperClase == null) {
+            return;
+        }
+
+        String nombreClase = nodoClase.getNombreClase();
+
+        if (nombreClase.equals(nombreSuperClase)) {
+            analisisContexto.reportarError(nodoClase.getLinea(), nodoClase.getColumna(), "La clase '" + nombreClase +
+                    "' no puede heredar de si misma");
+            return;
+        }
+
+        if (!analisisContexto.getTablaTipos().existeTipo(nombreSuperClase)) {
+            analisisContexto.reportarError(nodoClase.getLinea(), nodoClase.getColumna(), "La clase padre '" + nombreSuperClase +
+                    "' no existe");
         }
     }
 

@@ -16,6 +16,7 @@ import java.util.List;
 public class InformeTipo {
 
     private final String nombre;
+    private String nombreSuperClase;
     private final TipoDato categoria;
     private final TablaHash<Tipo> atributos = new TablaHash<>();
     private final TablaHash<List<MetodoRecord>> metodos = new TablaHash<>();
