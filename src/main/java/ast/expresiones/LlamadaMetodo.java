@@ -18,6 +18,7 @@ public class LlamadaMetodo extends Expresion {
     private TipoDato tipoResultado;
 
     private String claseReceptor;
+    private boolean esSuper;
 
     public LlamadaMetodo(int linea, int columna, Expresion objeto, String metodo, List<Expresion> argumentos) {
         super(linea, columna);
@@ -36,6 +37,11 @@ public class LlamadaMetodo extends Expresion {
             for (Expresion arg : argumentos) {
                 args.add(arg.generarC3D(contexto));
             }
+        }
+
+        if (esSuper) {
+            String nombre = contexto.resolverMetodoEstatico(claseReceptor, metodo, args.size());
+            return contexto.llamar(nombre, args, tipoResultado);
         }
 
         // Si el semántico no asignó claseReceptor, se busca la clase que define el método

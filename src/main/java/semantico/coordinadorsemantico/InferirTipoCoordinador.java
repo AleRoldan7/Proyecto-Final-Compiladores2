@@ -36,6 +36,7 @@ public class InferirTipoCoordinador {
         registrar(LlamadaMetodo.class, new InferidorLlamadaMetodo(this));
         registrar(CrearObjeto.class, new InferidorCrearObjeto(this));
         registrar(InicializacionEstructura.class, new InferidorInicializacionEstructura(this));
+        registrar(LlamadaConstructorPadre.class, new InferidorLlamadaConstructorPadre(this));
     }
 
     private <T extends Expresion> void registrar(Class<T> tipo, InferirTipo<T> inferidor) {

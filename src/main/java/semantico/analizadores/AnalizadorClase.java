@@ -57,6 +57,8 @@ public class AnalizadorClase implements AnalizadorSemantico<Clase> {
 
         validarHerencia(nodoClase, analisisContexto);
         AnalizadorOverride.validar(nodoClase, infoClase, analisisContexto);
+        AnalizadorSuper.validarAtributosNoRedeclarados(nodoClase, infoClase, analisisContexto);
+        AnalizadorSuper.validarConstructores(nodoClase, analisisContexto);
 
         InformeTipo claseAnterior = analisisContexto.getClaseActual();
         analisisContexto.setClaseActual(infoClase);

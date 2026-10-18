@@ -26,6 +26,7 @@ import java.util.List;
 public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
 
     private final AnalisisContexto analisisContexto;
+    private String superClaseActual;
 
     public VisitorZetariano(AnalisisContexto contexto) {
         this.analisisContexto = contexto;
@@ -56,6 +57,7 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         if (ctx.ID().size() > 1) {
             superClase = ctx.ID(1).getText();
         }
+        superClaseActual = superClase;
 
         List<Atributo> atributos = new ArrayList<>();
         List<Constructor> constructores = new ArrayList<>();
@@ -79,7 +81,7 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
                 if (nodo instanceof Metodo metodo) metodos.add(metodo);
             }
         }
-
+        superClaseActual = null;
         return new Clase(linea(ctx), columna(ctx), nombreClase, superClase, atributos, constructores, metodos);
     }
 
@@ -129,8 +131,6 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         return atributo;
     }
 
-
-
     @Override
     public NodoAST visitConstructor(GrammarZetarianoParser.ConstructorContext ctx) {
 
@@ -141,6 +141,18 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         return new Constructor(linea(ctx), columna(ctx), nombreConstructor, parametros, cuerpo);
     }
 
+
+    /*VISITOR SUPER */
+    @Override
+    public NodoAST visitSentLlamadaSuper(GrammarZetarianoParser.SentLlamadaSuperContext ctx) {
+        return new SentenciaExpresion(linea(ctx), columna(ctx), (Expresion) visit(ctx.llamadaSuper()));
+    }
+
+    @Override
+    public NodoAST visitLlamadaSuper(GrammarZetarianoParser.LlamadaSuperContext ctx) {
+        List<Expresion> argumentos = construirArgumentos(ctx.listaArgumentos());
+        return new LlamadaConstructorPadre(linea(ctx), columna(ctx), superClaseActual, argumentos);
+    }
 
     @Override
     public NodoAST visitMetodo(GrammarZetarianoParser.MetodoContext ctx) {
@@ -793,15 +805,16 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         List<TerminalNode> ids = ctx.ID();
         int totalIds = ids.size();
 
+        boolean usaSelf = ctx.THIS() != null || ctx.SUPER() != null;
+
         Expresion objeto;
         int siguienteId;
 
-        if (ctx.THIS() != null) {
-            objeto = new Identificador(linea(ctx), columna(ctx), "this");
+        if (usaSelf) {
+            objeto = new Identificador(linea(ctx), columna(ctx), ctx.SUPER() != null ? "super" : "this");
             siguienteId = 0;
         } else {
-            String nombreBase = ids.get(0).getText();
-            objeto = new Identificador(linea(ctx), columna(ctx), nombreBase);
+            objeto = new Identificador(linea(ctx), columna(ctx), ids.get(0).getText());
             siguienteId = 1;
         }
 
@@ -812,7 +825,14 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
         String nombreMetodo = ids.get(totalIds - 1).getText();
         List<Expresion> argumentos = construirArgumentos(ctx.listaArgumentos());
 
-        return new LlamadaMetodo(linea(ctx), columna(ctx), objeto, nombreMetodo, argumentos);
+        LlamadaMetodo llamada = new LlamadaMetodo(linea(ctx), columna(ctx), objeto, nombreMetodo, argumentos);
+
+        if (ctx.SUPER() != null && totalIds == 1) {
+            llamada.setEsSuper(true);
+            llamada.setClaseReceptor(superClaseActual);
+        }
+
+        return llamada;
     }
 
 
@@ -853,8 +873,9 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
 
         Expresion actual;
 
-        if (ctx.THIS() != null) {
-            actual = new Identificador(linea(ctx), columna(ctx), "this");
+        if (ctx.THIS() != null || ctx.SUPER() != null) {
+            String base = ctx.SUPER() != null ? "super" : "this";
+            actual = new Identificador(linea(ctx), columna(ctx), base);
         } else {
             String nombre = ids.get(cursorId++).getText();
             actual = new Identificador(linea(ctx), columna(ctx), nombre);

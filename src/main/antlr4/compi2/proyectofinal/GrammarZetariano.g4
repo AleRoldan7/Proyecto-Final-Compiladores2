@@ -71,6 +71,7 @@ sentencia:
     | asignacion PUNTO_COMA                                 # sentAsignacion
     | llamadaFuncion PUNTO_COMA                              # sentLlamadaFuncion
     | llamadaMetodo PUNTO_COMA                               # sentLlamadaMetodo
+    | llamadaSuper PUNTO_COMA                                # sentLlamadaSuper
     | accesoVariable (INCREMENTO | DECREMENTO) PUNTO_COMA    # sentIncrDecrPostfijo
     | (INCREMENTO | DECREMENTO) accesoVariable PUNTO_COMA    # sentIncrDecrPrefijo
     | imprimirStmt PUNTO_COMA                                # sentImprimir
@@ -104,7 +105,7 @@ asignacion:
     ;
 
 accesoVariable:
-    (THIS PUNTO)? ID (PUNTO ID | CORCHETE_ABRE expresion CORCHETE_CIERRA)*
+    (THIS PUNTO | SUPER PUNTO)? ID (PUNTO ID | CORCHETE_ABRE expresion CORCHETE_CIERRA)*
     ;
 
 /* --------- Condicionales --------- */
@@ -223,8 +224,13 @@ llamadaFuncion:
     ;
 
 llamadaMetodo:
-    (THIS | ID) (PUNTO ID)* PUNTO ID PARENTESIS_ABRE listaArgumentos? PARENTESIS_CIERRA
+    (THIS | SUPER | ID) (PUNTO ID)* PUNTO ID PARENTESIS_ABRE listaArgumentos? PARENTESIS_CIERRA
     ;
+
+llamadaSuper:
+    SUPER PARENTESIS_ABRE listaArgumentos? PARENTESIS_CIERRA
+    ;
+
 
 listaArgumentos:
     expresion (COMA expresion)*
@@ -277,6 +283,7 @@ BOOLEAN: 'boolean';
 STRING: 'String';
 NEW: 'new';
 THIS: 'this';
+SUPER: 'super';
 
 TRUE: 'true';
 FALSE: 'false';

@@ -24,7 +24,12 @@ public class InferidorLlamadaMetodo implements InferirTipo<LlamadaMetodo> {
     @Override
     public Tipo inferir(LlamadaMetodo nodoMetodo, AnalisisContexto analisisContexto) {
 
-        Tipo tipoObjeto = inferirTipoCoordinador.inferir(nodoMetodo.getObjeto(), analisisContexto);
+        Tipo tipoObjeto;
+        if (nodoMetodo.isEsSuper()) {
+            tipoObjeto = tipoDeSuper(nodoMetodo, analisisContexto);
+        } else {
+            tipoObjeto = inferirTipoCoordinador.inferir(nodoMetodo.getObjeto(), analisisContexto);
+        }
 
         List<Expresion> argumentos = nodoMetodo.getArgumentos() == null
                 ? List.of() : nodoMetodo.getArgumentos();
@@ -128,5 +133,17 @@ public class InferidorLlamadaMetodo implements InferirTipo<LlamadaMetodo> {
                 : Tipos.simple(nodoMetodo.getLinea(), nodoMetodo.getColumna(), Tipos.VOID);
     }
     */
+    }
+
+    private Tipo tipoDeSuper(LlamadaMetodo nodo, AnalisisContexto ctx) {
+        InformeTipo actual = ctx.getClaseActual();
+        String padre = actual == null ? null : actual.getNombreSuperClase();
+
+        if (padre == null) {
+            ctx.reportarError(nodo.getLinea(), nodo.getColumna(),
+                    "'super' solo puede usarse en una clase que tiene extends");
+            return null;
+        }
+        return new Tipo(nodo.getLinea(), nodo.getColumna(), padre, false, 0);
     }
 }

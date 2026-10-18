@@ -1,5 +1,6 @@
 package semantico;
 
+import ast.expresiones.LlamadaConstructorPadre;
 import ast.tipos.Tipo;
 import enums.TipoArchivo;
 import enums.TipoDato;
@@ -13,8 +14,7 @@ import tablas.TablaTipos;
 import semantico.dialecto.Dialecto;
 import semantico.dialecto.Dialectos;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 
 @Getter
@@ -119,5 +119,16 @@ public class AnalisisContexto {
             }
         }
         return null;
+    }
+
+    private final Set<LlamadaConstructorPadre> superPermitido =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+
+    public void permitirSuper(LlamadaConstructorPadre llamada) {
+        superPermitido.add(llamada);
+    }
+
+    public boolean superPermitido(LlamadaConstructorPadre llamada) {
+        return superPermitido.contains(llamada);
     }
 }

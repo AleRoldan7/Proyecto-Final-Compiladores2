@@ -1,6 +1,7 @@
 package c3d;
 
 import enums.TipoDato;
+import exceptiones.C3DException;
 import lombok.Getter;
 
 import java.util.*;
@@ -12,7 +13,7 @@ public class ContextoC3D {
     private static final TipoDato TIPO_ENTERO = TipoDato.ENTERO;
     private static final TipoDato TIPO_BOOLEANO = TipoDato.BOOLEANO;
 
-    private static final int OFFSET_PRIMER_PARAM = 2;   // [0]=id retorno, [1]=fp anterior
+    private static final int OFFSET_PRIMER_PARAM = 2;
     private static final int LIMITE_CUARTETAS = 2_000_000;
     private static final String BLOQUE_GLOBAL = "__globales";
     private static final Pattern TEMPORAL = Pattern.compile("t\\d+");
@@ -1004,6 +1005,31 @@ public class ContextoC3D {
         tiposRetorno.put(nombreReal(nombre, aridad), tipo);
     }
 
+    public String resolverMetodoEstatico(String clase, String metodo, int aridad) {
+        if (clase == null) {
+            throw new C3DException("'super' solo puede usarse en una clase que tiene extends");
+        }
+        String owner = definidorDe(clase, metodo, aridad);
+        if (owner == null) {
+            throw new C3DException("La clase '" + clase + "' no define el método '"
+                    + metodo + "' con " + (aridad - 1) + " parámetro(s)");
+        }
+        return nombreFuncion(owner, metodo);
+    }
+
+
+    private String definidorDe(String clase, String metodo, int aridad) {
+        Set<String> definen = clasesPorMetodo.getOrDefault(metodo + "/" + aridad, Set.of());
+
+        for (String actual = clase; actual != null; ) {
+            if (definen.contains(actual)) {
+                return actual;
+            }
+            DefinicionClase def = definicionesClase.get(actual);
+            actual = (def == null) ? null : def.superclase();
+        }
+        return null;
+    }
     /*
     public TipoDato tipoDeVariable(String nombre) {
         return tipoVariables.getOrDefault(nombre, TipoDato.DESCONOCIDO);

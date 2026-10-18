@@ -30,8 +30,15 @@ public class AnalizadorOverride {
             Heredado heredado = buscar(ancestros, metodo.getNombreMetodo(), firma);
 
             if (metodo.isOverride() && heredado == null) {
+                boolean esPrivadoEnAncestro = ancestros.stream()
+                        .flatMap(a -> a.firmasDe(metodo.getNombreMetodo()).stream())
+                        .anyMatch(m -> m.modificadorAcceso() == ModificadorAcceso.PRIVATE
+                                && Herencia.firma(m).equals(firma));
+
                 ctx.reportarError(metodo.getLinea(), metodo.getColumna(),
-                        "@Override en '" + firma + "': ninguna clase padre declara un método con esa firma");
+                        esPrivadoEnAncestro
+                                ? "@Override en '" + firma + "': el método del padre es private y no se puede sobrescribir"
+                                : "@Override en '" + firma + "': ninguna clase padre declara un método con esa firma");
                 continue;
             }
 
