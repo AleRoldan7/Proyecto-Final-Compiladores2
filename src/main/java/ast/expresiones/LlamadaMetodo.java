@@ -31,7 +31,7 @@ public class LlamadaMetodo extends Expresion {
     public String generarC3D(ContextoC3D contexto) {
 
         List<String> args = new ArrayList<>();
-        args.add(objeto.generarC3D(contexto));     // self
+        args.add(objeto.generarC3D(contexto));
 
         if (argumentos != null) {
             for (Expresion arg : argumentos) {
@@ -44,9 +44,11 @@ public class LlamadaMetodo extends Expresion {
             return contexto.llamar(nombre, args, tipoResultado);
         }
 
-        // Si el semántico no asignó claseReceptor, se busca la clase que define el método
-        String nombreFuncion = contexto.resolverMetodo(claseReceptor, metodo, args.size());
+        if (claseReceptor != null) {
+            return contexto.llamarVirtual(claseReceptor, metodo, args, tipoResultado);
+        }
 
+        String nombreFuncion = contexto.resolverMetodo(claseReceptor, metodo, args.size());
         return contexto.llamar(nombreFuncion, args, tipoResultado);
     }
 

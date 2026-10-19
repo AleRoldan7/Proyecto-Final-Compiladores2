@@ -34,7 +34,7 @@ public class CrearObjeto extends Expresion {
 
         String objeto = contexto.nuevoTemporal(TipoDato.OBJETO);
         contexto.agregar("new", getNombreClase(), String.valueOf(contexto.tamanio(getNombreClase())), objeto);
-
+        contexto.agregar("field_set", "0", String.valueOf(contexto.idDeClase(getNombreClase())), objeto);
         String constructor = ContextoC3D.nombreConstructor(getNombreClase());
 
         if (contexto.existeFuncion(constructor)) {

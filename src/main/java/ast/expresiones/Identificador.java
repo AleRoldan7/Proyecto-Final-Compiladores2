@@ -22,17 +22,14 @@ public class Identificador extends Expresion {
 
         String nombre = getNombreIdentificador();
 
-        // this -> el parámetro "self" vive en la pila
-        if ("this".equals(nombre)) {
+        if ("this".equals(nombre) || "super".equals(nombre)) {
             return contexto.leerVariable("self", TipoDato.OBJETO);
         }
 
-        // Variable local o parámetro: se lee de la pila
         if (contexto.esLocal(nombre)) {
             return contexto.leerVariable(nombre, contexto.tipoDeVariable(nombre));
         }
 
-        // Atributo del objeto actual
         if (contexto.esAtributo(nombre)) {
             TipoDato tipo = contexto.tipoDeAtributo(contexto.getClaseActual(), nombre);
             String self = contexto.leerVariable("self", TipoDato.OBJETO);

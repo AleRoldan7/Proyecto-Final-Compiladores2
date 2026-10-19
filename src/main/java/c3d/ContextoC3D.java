@@ -66,6 +66,8 @@ public class ContextoC3D {
     private final Map<String, TipoDato> tiposLocales = new HashMap<>();
     private final Map<String, TipoDato> tiposRetorno = new HashMap<>();
 
+    private final Map<String, Integer> idsClase = new LinkedHashMap<>();
+
     // =====================================================
     //  Temporales
     // =====================================================
@@ -706,7 +708,7 @@ public class ContextoC3D {
 
         Map<String, Integer> mapa = new LinkedHashMap<>();
         Map<String, TipoDato> tiposMapa = new LinkedHashMap<>();
-        int desplazamiento = 0;
+        int desplazamiento = 1;
 
         // 1) Atributos heredados, en las mismas posiciones que en el padre
         String padre = def.superclase();
@@ -724,7 +726,7 @@ public class ContextoC3D {
                 mapa.put(e.getKey(), e.getValue());
                 tiposMapa.put(e.getKey(), tiposPadre.getOrDefault(e.getKey(), TipoDato.DESCONOCIDO));
             }
-            desplazamiento = mapaPadre.size();
+            desplazamiento = 1 + mapaPadre.size();
         }
 
         // 2) Atributos propios, a partir de la posición siguiente
@@ -752,7 +754,7 @@ public class ContextoC3D {
     }
 
     public int tamanio(String clase) {
-        return disposicion(clase).size();
+        return disposicion(clase).size() + 1;
     }
 
     public String getClaseActual() {
@@ -982,6 +984,48 @@ public class ContextoC3D {
         visitando.remove(nombre);
     }
 
+    public String llamarVirtual(String claseEstatica, String metodo,
+                                List<String> argumentos, TipoDato tipoRetorno) {
+
+        int aridad = argumentos.size();
+        String self = argumentos.get(0);
+        boolean esVoid = tipoRetorno == TipoDato.VOID;
+
+        String resultado = esVoid ? null : nuevoTemporal(tipoRetorno);
+        String fin = nuevaEtiqueta();
+
+        // id = heap[self + 0]
+        String id = temporalAuxiliar(TIPO_ENTERO);
+        agregar("attr_get", self, "0", id, TIPO_ENTERO);
+
+        // Una rama por cada clase concreta que sea la estática o una subclase suya
+        for (String clase : definicionesClase.keySet()) {
+            if (!esSubtipo(clase, claseEstatica)) continue;
+
+            String owner = definidorDe(clase, metodo, aridad);
+            if (owner == null) continue;
+
+            String siguiente = nuevaEtiqueta();
+            String cond = binaria("==", id, String.valueOf(idDeClase(clase)), TIPO_BOOLEANO);
+            saltoSiFalso(cond, siguiente);
+
+            String r = llamar(nombreFuncion(owner, metodo), argumentos, tipoRetorno);
+            if (!esVoid) agregar("=", r, null, resultado, tipoRetorno);
+            salto(fin);
+
+            agregarEtiqueta(siguiente);
+        }
+
+        // Caso por defecto: implementación de la clase estática
+        String ownerEstatico = definidorDe(claseEstatica, metodo, aridad);
+        String nombre = nombreFuncion(ownerEstatico != null ? ownerEstatico : claseEstatica, metodo);
+        String r = llamar(nombre, argumentos, tipoRetorno);
+        if (!esVoid) agregar("=", r, null, resultado, tipoRetorno);
+
+        agregarEtiqueta(fin);
+        return resultado;
+    }
+
     public TipoDato tipoDeCelda(String tipoEstructura, int offsetLocal) {
         return tiposCelda.getOrDefault(tipoEstructura, Map.of())
                 .getOrDefault(offsetLocal, TipoDato.DESCONOCIDO);
@@ -1017,6 +1061,23 @@ public class ContextoC3D {
         return nombreFuncion(owner, metodo);
     }
 
+    private boolean esSubtipo(String clase, String ancestro) {
+        for (String x = clase; x != null; ) {
+            if (x.equals(ancestro)) return true;
+            DefinicionClase d = definicionesClase.get(x);
+            x = (d == null) ? null : d.superclase();
+        }
+        return false;
+    }
+
+    public int idDeClase(String clase) {
+        Integer id = idsClase.get(clase);
+        if (id == null) {
+            id = idsClase.size() + 1;
+            idsClase.put(clase, id);
+        }
+        return id;
+    }
 
     private String definidorDe(String clase, String metodo, int aridad) {
         Set<String> definen = clasesPorMetodo.getOrDefault(metodo + "/" + aridad, Set.of());
