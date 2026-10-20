@@ -31,7 +31,7 @@ public class ExpresionUnaria extends Expresion {
                 return contexto.unaria("neg", operando, TipoDato.ENTERO);
 
             case "!":
-                return contexto.unaria("not", operando, TipoDato.BOOLEANO);
+                return contexto.unaria("!", operando, TipoDato.BOOLEANO);
 
             case "++":
             case "--": {

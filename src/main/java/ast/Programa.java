@@ -97,21 +97,26 @@ public class Programa extends NodoAST {
             }
         }
 
-        if (funciones != null) {
-            for (DeclaracionFuncion f : funciones) {
-                f.generarC3D(contexto);
-            }
-        }
+        // 3. Globales: solo declaraciones de variables, nunca funciones
+        List<Declaracion> globales = (declaraciones == null) ? List.of()
+                : declaraciones.stream()
+                .filter(d -> !(d instanceof DeclaracionFuncion))
+                .toList();
 
-        // Variables globales del programa (.pig): se ejecutan ANTES de main
-        if (declaraciones != null && !declaraciones.isEmpty()) {
+        if (!globales.isEmpty()) {
             contexto.abrirGlobales();
-            for (Declaracion d : declaraciones) {
+            for (Declaracion d : globales) {
                 d.generarC3D(contexto);
             }
             contexto.cerrarGlobales();
         }
 
+        // 4. Funciones: una sola vez, cada una desde su lista
+        if (funciones != null) {
+            for (DeclaracionFuncion f : funciones) {
+                f.generarC3D(contexto);
+            }
+        }
 
         return null;
     }

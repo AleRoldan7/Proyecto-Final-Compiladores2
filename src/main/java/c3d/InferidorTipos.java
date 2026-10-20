@@ -13,7 +13,7 @@ public class InferidorTipos {
 
     public static final Set<String> REGISTROS = Set.of("fp", "sp", "retaddr", "retval", "self");
     private static final Set<String> NO_DEFINEN = Set.of("index_set", "field_set", "stack_set", "label", "goto", "halt", "comment", "print");
-    private static final Set<String> BOOLEANAS = Set.of("==", "!=", "<", ">", "<=", ">=", "&&", "||", "not");
+    private static final Set<String> BOOLEANAS = Set.of("==", "!=", "<", ">", "<=", ">=", "&&", "||", "!");
 
     public static Map<String,TipoDato> inferir(List<Cuarteta> cuartetas) {
         return inferir(cuartetas, Map.of());

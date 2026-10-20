@@ -67,7 +67,8 @@ public class ContextoC3D {
     private final Map<String, TipoDato> tiposRetorno = new HashMap<>();
 
     private final Map<String, Integer> idsClase = new LinkedHashMap<>();
-
+    private final Set<String> locales = new HashSet<>();
+    private final Set<String> globalesDeclaradas = new HashSet<>();
     // =====================================================
     //  Temporales
     // =====================================================
@@ -77,14 +78,12 @@ public class ContextoC3D {
         return temporal;
     }
 
-    /** Temporal de uso inmediato (índices, bases de marco). */
     private String temporalAuxiliar(TipoDato tipo) {
         String temporal = "t" + contadorTemporales++;
         tipoTemporales.put(temporal, tipo);
         return temporal;
     }
 
-    /** Emite "aux = base + desplazamiento". */
     private String sumaAuxiliar(String base, int desplazamiento) {
         String temporal = temporalAuxiliar(TIPO_ENTERO);
         cuartetas.add(new Cuarteta("+", base, String.valueOf(desplazamiento), temporal, TIPO_ENTERO));
@@ -108,6 +107,11 @@ public class ContextoC3D {
 
     public void agregar(String operador, String arg1, String arg2,
                         String resultado, TipoDato tipo) {
+
+        if ("=".equals(operador) && arg1 == null) {
+            throw new IllegalStateException("asignación a '" + resultado + "' sin valor. "
+                    + "Probablemente se asignó el resultado de una llamada void.");
+        }
 
         // "self" vive en la pila: se lee a un temporal antes de usarlo
         if (!operador.startsWith("stack_")) {
@@ -172,14 +176,13 @@ public class ContextoC3D {
     //  Asignación
     // =====================================================
     public void asignar(String destino, String valor) {
-        if (esLocal(destino)) {
-            int offset = offsetsLocales.get(destino);
-            String idx = sumaAuxiliar("fp", offset);
-            agregar("stack_set", idx, valor, null);
-        } else if (esAtributo(destino)) {
-            int offset = desplazamiento(claseActual, destino);
+        if (!esLocal(destino) && esAtributo(destino)) {
+            int indice = desplazamiento(claseActual, destino);
             String self = leerVariable("self", TipoDato.OBJETO);
-            cuartetas.add(new Cuarteta("field_set", String.valueOf(offset), valor, self, null));
+            cuartetas.add(new Cuarteta("field_set", String.valueOf(indice), valor, self, null));
+            if (valor == null) {
+                throw new IllegalStateException("asignación a '" + destino + "' sin valor.");
+            }
         } else {
             cuartetas.add(new Cuarteta("=", valor, null, destino, null));
         }
@@ -247,20 +250,13 @@ public class ContextoC3D {
     //  Inicio y fin del programa
     // =====================================================
     public void iniciarPrograma() {
-        if (programaIniciado) return;
-        programaIniciado = true;
-
-        agregar("=", "0", null, "fp");
-        agregar("=", "0", null, "sp");
-        indiceSaltoInicial = cuartetas.size();
-        salto("func_main");     // se corrige en finalizarPrograma si hay globales
+        programaIniciado = true;   // _start lo genera el backend
     }
 
     public void finalizarPrograma() {
         if (programaFinalizado) return;
         programaFinalizado = true;
 
-        // 1) toda llamada debe tener su función
         List<String> faltantes = new ArrayList<>();
         for (Map.Entry<String, String> e : llamadasPendientes.entrySet()) {
             if (!funcionesDefinidas.contains(e.getKey())) {
@@ -269,57 +265,21 @@ public class ContextoC3D {
         }
         if (!faltantes.isEmpty()) {
             throw new IllegalStateException("Se llama a funciones o métodos que no existen en el C3D:\n  - "
-                    + String.join("\n  - ", faltantes)
-                    + "\nSi es un método, revisa que LlamadaMetodo traiga claseReceptor y que la clase se haya generado.");
+                    + String.join("\n  - ", faltantes));
         }
-
-        // 2) el programa empieza en las globales (si hay) y luego en main
-        if (indiceSaltoInicial >= 0) {
-            String destino = primeraEtiquetaGlobales != null ? primeraEtiquetaGlobales : "func_main";
-            cuartetas.set(indiceSaltoInicial, new Cuarteta("goto", null, null, destino, null));
-        }
-
-        // 3) retorno: ret_dispatch
-        agregarEtiqueta("ret_dispatch");
-        for (int id : sitiosRetorno) {
-            String cond = temporalAuxiliar(TIPO_BOOLEANO);
-            cuartetas.add(new Cuarteta("==", "retaddr", String.valueOf(id), cond, TIPO_BOOLEANO));
-            saltoSiVerdadero(cond, "ret_" + id);
-        }
-        agregarEtiqueta("fin_programa");
     }
 
-    // =====================================================
-    //  Variables globales del programa (.pig): se ejecutan antes de main
-    // =====================================================
     public void abrirGlobales() {
-        String etiqueta = "globales_" + contadorGlobales++;
-
-        if (indiceSaltoSalidaGlobales >= 0) {
-            // encadena con el bloque anterior
-            cuartetas.set(indiceSaltoSalidaGlobales, new Cuarteta("goto", null, null, etiqueta, null));
-        } else {
-            primeraEtiquetaGlobales = etiqueta;
-        }
-
-        agregarEtiqueta(etiqueta);
-        funcionActual = BLOQUE_GLOBAL;
-        iniciarMarco();
+        funcionActual = "__init";
+        locales.clear();
+        tiposLocales.clear();
+        cuartetas.add(new Cuarteta("fbegin", "__init", null, null, null));
     }
 
     public void cerrarGlobales() {
-        indiceSaltoSalidaGlobales = cuartetas.size();
-        salto("func_main");
-        expandirLlamadas();
-        parchearMarco();
+        cuartetas.add(new Cuarteta("fend", "__init", null, null, null));
         funcionActual = null;
-    }
-
-    // =====================================================
-    //  Funciones / métodos / constructores
-    // =====================================================
-    public void abrirFuncion(String nombre, List<String> parametros) {
-        abrirFuncion(nombre, parametros, null);
+        locales.clear();
     }
 
     public void abrirFuncion(String nombre, List<String> parametros, List<TipoDato> tipos) {
@@ -332,44 +292,33 @@ public class ContextoC3D {
 
         registrarFuncion(nombre);
         funcionActual = real;
-        agregarEtiqueta("func_" + real);
-        iniciarMarco();
+        locales.clear();
+        tiposLocales.clear();
+        cuartetas.add(new Cuarteta("fbegin", real, null, null, null));
 
         for (int i = 0; i < parametros.size(); i++) {
-            String parametro = parametros.get(i);
-            offsetsLocales.put(parametro, siguienteOffset++);
-            if (tipos != null && i < tipos.size()) {
-                tiposLocales.put(parametro, tipos.get(i));
-            }
+            String p = parametros.get(i);
+            TipoDato t = (tipos != null && i < tipos.size()) ? tipos.get(i) : TipoDato.DESCONOCIDO;
+            locales.add(p);
+            tiposLocales.put(p, t);
+            cuartetas.add(new Cuarteta("fparam", p, null, null, t));
         }
+    }
+
+    public void abrirFuncion(String nombre, List<String> parametros) {
+        abrirFuncion(nombre, parametros, null);
     }
 
     public void cerrarFuncion(String nombre) {
-        String real = funcionActual;
-        agregarEtiqueta("end_" + real);
-
-        if ("main".equals(real)) {
-            salto("fin_programa");
-        } else {
-            // retaddr = stack[fp]
-            agregar("stack_get", "fp", null, "retaddr");
-            // sp = fp (se libera el marco)
-            agregar("=", "fp", null, "sp");
-            // fp = stack[fp + 1] (marco del llamador)
-            String idx = sumaAuxiliar("fp", 1);
-            agregar("stack_get", idx, null, "fp");
-            salto("ret_dispatch");
-        }
-
-        expandirLlamadas();
-        parchearMarco();
+        cuartetas.add(new Cuarteta("fend", funcionActual, null, null, null));
         funcionActual = null;
+        locales.clear();
     }
 
-    /** true dentro de una función/método/main (no en el bloque de globales). */
     public boolean enFuncion() {
-        return funcionActual != null && !BLOQUE_GLOBAL.equals(funcionActual);
+        return funcionActual != null && !"__init".equals(funcionActual);
     }
+
 
     public String getFuncionActual() {
         return funcionActual;
@@ -393,15 +342,21 @@ public class ContextoC3D {
     //  Variables locales
     // =====================================================
     public void declararLocal(String nombre, TipoDato tipo) {
-        offsetsLocales.put(nombre, siguienteOffset++);
+        locales.add(nombre);
         tiposLocales.put(nombre, tipo);
+        cuartetas.add(new Cuarteta("ldecl", nombre, null, null, tipo));
+    }
+
+    public void declararGlobal(String nombre, TipoDato tipo) {
+        registrarGlobal(nombre, tipo);
+        if (globalesDeclaradas.add(nombre)) {
+            cuartetas.add(new Cuarteta("gdecl", nombre, null, null, tipo));
+        }
     }
 
     public TipoDato tipoDeVariable(String nombre) {
         TipoDato local = tiposLocales.get(nombre);
-        if (local != null) {
-            return local;
-        }
+        if (local != null) return local;
         return tipoVariables.getOrDefault(nombre, TipoDato.DESCONOCIDO);
     }
 
@@ -412,15 +367,11 @@ public class ContextoC3D {
     }
 
     public boolean esLocal(String nombre) {
-        return offsetsLocales.containsKey(nombre);
+        return locales.contains(nombre);
     }
 
     public String leerVariable(String nombre, TipoDato tipo) {
-        int offset = offsetsLocales.get(nombre);
-        String idx = sumaAuxiliar("fp", offset);
-        String temporal = nuevoTemporal(tipo);
-        agregar("stack_get", idx, null, temporal, tipo);
-        return temporal;
+        return nombre;
     }
 
     // =====================================================
@@ -432,38 +383,13 @@ public class ContextoC3D {
     }
 
     public String llamar(String funcion, List<String> argumentos, TipoDato tipoRetorno) {
-
-        if (cuartetas.size() > LIMITE_CUARTETAS) {
-            throw new IllegalStateException("El C3D superó " + LIMITE_CUARTETAS
-                    + " cuartetas: hay una expansión descontrolada en la generación.");
-        }
-
         String real = nombreReal(funcion, argumentos.size());
         llamadasPendientes.putIfAbsent(real,
                 funcion + " con " + argumentos.size() + " argumento(s) (contando self)");
 
-        int id = contadorSitiosRetorno++;
-        sitiosRetorno.add(id);
-
-        // Marca: al cerrar la función se reemplaza por el guardado de los temporales vivos
-        agregar("call_save", null, null, String.valueOf(id));
-
-        // Marco nuevo en sp
-        String base = temporalAuxiliar(TIPO_ENTERO);
-        agregar("=", "sp", null, base);
-        guardarEnPila(base, 0, String.valueOf(id));
-        guardarEnPila(base, 1, "fp");
-        for (int i = 0; i < argumentos.size(); i++) {
-            guardarEnPila(base, OFFSET_PRIMER_PARAM + i, argumentos.get(i));
+        for (String arg : argumentos) {
+            cuartetas.add(new Cuarteta("param", arg, null, null, null));
         }
-        agregar("=", base, null, "fp");
-
-        // Salto y retorno
-        salto("func_" + real);
-        agregarEtiqueta("ret_" + id);
-
-        // Marca: restauración de los temporales vivos
-        agregar("call_restore", null, null, String.valueOf(id));
 
         TipoDato tipoFinal = tipoRetorno;
         if (tipoFinal == null || tipoFinal == TipoDato.DESCONOCIDO) {
@@ -471,19 +397,17 @@ public class ContextoC3D {
         }
 
         if (tipoFinal == TipoDato.VOID) {
+            cuartetas.add(new Cuarteta("call", real, String.valueOf(argumentos.size()), "-", null));
             return null;
         }
 
         String resultado = nuevoTemporal(tipoFinal);
-        agregar("=", "retval", null, resultado, tipoFinal);
+        cuartetas.add(new Cuarteta("call", real, String.valueOf(argumentos.size()), resultado, tipoFinal));
         return resultado;
     }
 
     public void retornar(String valor) {
-        if (valor != null) {
-            agregar("=", valor, null, "retval");
-        }
-        salto("end_" + funcionActual);
+        cuartetas.add(new Cuarteta("return", valor == null ? "-" : valor, null, null, null));
     }
 
     // =====================================================
@@ -989,9 +913,15 @@ public class ContextoC3D {
 
         int aridad = argumentos.size();
         String self = argumentos.get(0);
-        boolean esVoid = tipoRetorno == TipoDato.VOID;
 
-        String resultado = esVoid ? null : nuevoTemporal(tipoRetorno);
+        // Las sobrescrituras comparten tipo de retorno (lo exige AnalizadorOverride),
+        // así que el tipo se resuelve una sola vez desde la clase estática.
+        String ownerEstatico = definidorDe(claseEstatica, metodo, aridad);
+        String base = nombreFuncion(ownerEstatico != null ? ownerEstatico : claseEstatica, metodo);
+        TipoDato tipoReal = tipoRetornoDe(base, aridad, tipoRetorno);
+        boolean esVoid = tipoReal == TipoDato.VOID;
+
+        String resultado = esVoid ? null : nuevoTemporal(tipoReal);
         String fin = nuevaEtiqueta();
 
         // id = heap[self + 0]
@@ -1009,21 +939,27 @@ public class ContextoC3D {
             String cond = binaria("==", id, String.valueOf(idDeClase(clase)), TIPO_BOOLEANO);
             saltoSiFalso(cond, siguiente);
 
-            String r = llamar(nombreFuncion(owner, metodo), argumentos, tipoRetorno);
-            if (!esVoid) agregar("=", r, null, resultado, tipoRetorno);
+            String r = llamar(nombreFuncion(owner, metodo), argumentos, tipoReal);
+            if (!esVoid) agregar("=", r, null, resultado, tipoReal);
             salto(fin);
 
             agregarEtiqueta(siguiente);
         }
 
         // Caso por defecto: implementación de la clase estática
-        String ownerEstatico = definidorDe(claseEstatica, metodo, aridad);
-        String nombre = nombreFuncion(ownerEstatico != null ? ownerEstatico : claseEstatica, metodo);
-        String r = llamar(nombre, argumentos, tipoRetorno);
-        if (!esVoid) agregar("=", r, null, resultado, tipoRetorno);
+        String r = llamar(base, argumentos, tipoReal);
+        if (!esVoid) agregar("=", r, null, resultado, tipoReal);
 
         agregarEtiqueta(fin);
         return resultado;
+    }
+
+    /** Tipo de retorno: el recibido si es válido; si no, el registrado para la función. */
+    private TipoDato tipoRetornoDe(String funcion, int aridad, TipoDato dado) {
+        if (dado != null && dado != TipoDato.DESCONOCIDO) {
+            return dado;
+        }
+        return tiposRetorno.getOrDefault(nombreReal(funcion, aridad), TipoDato.DESCONOCIDO);
     }
 
     public TipoDato tipoDeCelda(String tipoEstructura, int offsetLocal) {

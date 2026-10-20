@@ -27,9 +27,6 @@ public class GeneradorC3DCompleto {
         ContextoC3D ctx = new ContextoC3D();
         ultimoContexto = ctx;
 
-        // ==========================================
-        // 1. Registrar disposición de las clases
-        // ==========================================
         for (ArchivoFuente archivo : archivos) {
 
             if (archivo.raiz() instanceof Programa programa
@@ -41,7 +38,6 @@ public class GeneradorC3DCompleto {
             }
         }
 
-        // Resolver layouts de estructuras
         ctx.resolverEstructuras();
 
         for (ArchivoFuente archivo : archivos) {
@@ -54,18 +50,12 @@ public class GeneradorC3DCompleto {
             }
         }
 
-        // ==========================================
-        // 2. Inicio del programa: fp = 0, sp = 0, goto func_main
-        //    (debe ser lo PRIMERO que se emite, así se salta todo el código de las funciones)
-        // ==========================================
+
         boolean hayPrincipal = archivos.stream().anyMatch(ArchivoFuente::principal);
         if (hayPrincipal) {
             ctx.iniciarPrograma();
         }
 
-        // ==========================================
-        // 3. Archivos auxiliares (.y y .z)
-        // ==========================================
         for (ArchivoFuente archivo : archivos) {
 
             if (!archivo.principal()) {
@@ -74,9 +64,7 @@ public class GeneradorC3DCompleto {
             }
         }
 
-        // ==========================================
-        // 4. Archivo principal (.pig): su main se genera como una función más
-        // ==========================================
+
         for (ArchivoFuente archivo : archivos) {
 
             if (archivo.principal()) {
@@ -85,9 +73,6 @@ public class GeneradorC3DCompleto {
             }
         }
 
-        // ==========================================
-        // 5. Fin: ret_dispatch y fin_programa
-        // ==========================================
         if (hayPrincipal) {
             ctx.finalizarPrograma();
         }
@@ -101,38 +86,21 @@ public class GeneradorC3DCompleto {
 
         for (Cuarteta q : cuartetas) {
 
-            boolean sinSangria =
-                    "label".equals(q.getOperador())
-                            || "comment".equals(q.getOperador());
+            boolean sinSangria ="label".equals(q.getOperador()) || "comment".equals(q.getOperador());
 
-            sb.append(sinSangria ? "" : "    ")
-                    .append(q)
-                    .append("\n");
+            sb.append(sinSangria ? "" : "    ").append(q).append("\n");
         }
 
         return sb.toString();
     }
 
-    public static void exportar(
-            Path carpeta,
-            String nombreBase,
-            List<Cuarteta> cuartetas
-    ) throws IOException {
+    public static void exportar(Path carpeta, String nombreBase, List<Cuarteta> cuartetas) throws IOException {
 
         Files.createDirectories(carpeta);
 
-        Files.writeString(
-                carpeta.resolve(nombreBase + ".c3d"),
-                comoTexto(cuartetas)
-        );
+        Files.writeString(carpeta.resolve(nombreBase + ".c3d"), comoTexto(cuartetas));
 
-        Files.writeString(
-                carpeta.resolve(nombreBase + ".c"),
-                GenerarCodigoC.traducir(cuartetas)
-        );
-
-        Files.writeString(carpeta.resolve(nombreBase + ".s"),
-                GeneradorRiscV.generar(cuartetas, ultimoContexto.getTipoTemporales()));
+        Files.writeString(carpeta.resolve(nombreBase + ".s"), GeneradorRiscV.generar(cuartetas, ultimoContexto.getTipoTemporales()));
     }
 
 

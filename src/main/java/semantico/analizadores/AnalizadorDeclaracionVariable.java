@@ -4,6 +4,7 @@ import ast.declaraciones.DeclaracionVariable;
 import ast.expresiones.Expresion;
 import ast.expresiones.LlamadaFuncion;
 import ast.tipos.Tipo;
+import c3d.ConversorTipos;
 import enums.Categoria;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -64,8 +65,9 @@ public class AnalizadorDeclaracionVariable implements AnalizadorSemantico<Declar
         Tipo tipoInicializacion;
 
         if (esLectura(inicializacion)) {
+            LlamadaFuncion lectura = (LlamadaFuncion) inicializacion;
+            lectura.setTipoLectura(ConversorTipos.aTipoDato(tipoVariable));   // TipoDato de la variable
             tipoInicializacion = tipoVariable;
-
         } else {
             tipoInicializacion = inferirTipoCoordinador.inferir(inicializacion, analisisContexto);
         }

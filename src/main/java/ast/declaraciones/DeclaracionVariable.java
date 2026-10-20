@@ -27,23 +27,19 @@ public class DeclaracionVariable extends Declaracion {
 
     @Override
     public String generarC3D(ContextoC3D contexto) {
-
-        // el tipo sale de la declaración, no del valor inicial
         TipoDato tipoDato = ConversorTipos.aTipoDato(tipo);
-
-        // se evalúa primero el inicializador (puede mencionar un atributo con el mismo nombre)
-        String valor = (inicializacion != null) ? inicializacion.generarC3D(contexto) : null;
 
         if (contexto.enFuncion()) {
             contexto.declararLocal(nombre, tipoDato);
         } else {
-            contexto.registrarGlobal(nombre, tipoDato);
+            contexto.declararGlobal(nombre, tipoDato);
         }
+
+        String valor = (inicializacion != null) ? inicializacion.generarC3D(contexto) : null;
 
         if (valor != null) {
             contexto.asignar(nombre, valor);
         }
-
         return nombre;
     }
 

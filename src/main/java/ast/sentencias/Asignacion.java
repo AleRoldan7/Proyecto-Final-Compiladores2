@@ -1,9 +1,8 @@
 package ast.sentencias;
 
-import ast.expresiones.AccesoArreglo;
-import ast.expresiones.Almacenamiento;
-import ast.expresiones.Expresion;
+import ast.expresiones.*;
 import c3d.ContextoC3D;
+import enums.TipoDato;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,25 +21,31 @@ public class Asignacion extends Expresion {
 
     @Override
     public String generarC3D(ContextoC3D contexto) {
+
+        if (getValor() instanceof LlamadaFuncion lectura && ContextoC3D.esLectura(lectura.getNombre())) {
+            TipoDato t = tipoDelDestino(contexto);
+            System.err.println("DEBUG lectura destino=" + getDestino().getClass().getSimpleName()
+                    + " tipo=" + t
+                    + " tiposLocales=" + contexto.getTiposLocales()
+                    + " tipoVariables=" + contexto.getTipoVariables());
+            lectura.setTipoLectura(t);
+        }
+
         String valor = getValor().generarC3D(contexto);
         Almacenamiento.guardar(getDestino(), valor, contexto);
         return valor;
     }
 
-    private String generarIndiceAplanado(AccesoArreglo acceso, ContextoC3D contexto) {
-
-        var indices = acceso.getIndicesArreglo();
-
-        if (indices.isEmpty()) return "0";
-        if (indices.size() == 1) return indices.get(0).generarC3D(contexto);
-
-        String acumulado = indices.get(0).generarC3D(contexto);
-
-        for (int i = 1; i < indices.size(); i++) {
-            String idx = indices.get(i).generarC3D(contexto);
-            acumulado = contexto.binaria("+", acumulado, idx, enums.TipoDato.ENTERO);
+    /** Tipo de la variable o atributo que recibe la lectura. */
+    private TipoDato tipoDelDestino(ContextoC3D contexto) {
+        if (getDestino() instanceof Identificador id) {
+            return contexto.tipoDeVariable(id.getNombreIdentificador());
         }
-
-        return acumulado;
+        if (getDestino() instanceof AccesoAtributo acc
+                && acc.getBase() instanceof Identificador base
+                && "this".equals(base.getNombreIdentificador())) {
+            return contexto.tipoDeAtributo(contexto.getClaseActual(), acc.getAtributo());
+        }
+        return TipoDato.DESCONOCIDO;
     }
 }

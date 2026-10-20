@@ -20,6 +20,8 @@ public class Bloque extends NodoAST implements Sentencia {
 
     @Override
     public String generarC3D(ContextoC3D contexto) {
+        System.err.println("DEBUG bloque con " + sentencias.size() + " sentencias: "
+                + sentencias.stream().map(s -> s.getClass().getSimpleName()).toList());
         for (Sentencia s : sentencias) {
             s.generarC3D(contexto);
         }

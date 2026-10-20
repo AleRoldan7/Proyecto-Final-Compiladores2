@@ -27,10 +27,10 @@ public class ConversorTipos {
         }
 
         return switch (nombre.toLowerCase()) {
-            case "entero", "int"                        -> TipoDato.ENTERO;
-            case "decimal", "double", "float", "flotante" -> TipoDato.DECIMAL;
-            case "texto", "string", "cadena"            -> TipoDato.TEXTO;
-            case "caracter", "char"                     -> TipoDato.CARACTER;
+            case "numerus", "entero", "int"                        -> TipoDato.ENTERO;
+            case "fractum", "decimal", "double", "float", "flotante", "decimalis" -> TipoDato.DECIMAL;
+            case "textum", "texto", "string", "cadena"            -> TipoDato.TEXTO;
+            case "caracter", "char", "littera", "literal"                    -> TipoDato.CARACTER;
             case "booleano", "bool", "boolean"          -> TipoDato.BOOLEANO;
             case "void"                                 -> TipoDato.VOID;
             default                                     -> TipoDato.OBJETO;

@@ -30,7 +30,12 @@ public class Cuarteta {
             case "if_true"  -> "if " + arg1 + " goto " + resultado;
             case "if_false" -> "if_false " + arg1 + " goto " + resultado;
             case "="        -> resultado + " = " + arg1;
-            case "call"     -> resultado == null
+            case "fbegin"  -> "fbegin " + arg1;
+            case "fend"    -> "fend " + arg1;
+            case "fparam"  -> "fparam " + arg1;
+            case "ldecl"   -> "local " + arg1 + " : " + tipoDeclarado;
+            case "gdecl"   -> "global " + arg1 + " : " + tipoDeclarado;
+            case "call"    -> (resultado == null || "-".equals(resultado))
                     ? "call " + arg1 + ", " + arg2
                     : resultado + " = call " + arg1 + ", " + arg2;
             case "param"    -> "param " + arg1;
@@ -40,7 +45,7 @@ public class Cuarteta {
             case "halt"     -> "halt";
 
             case "neg"      -> resultado + " = -" + arg1;
-            case "not"      -> resultado + " = !" + arg1;
+            case "!"      -> resultado + " = !" + arg1;
 
             case "index_get" -> resultado + " = " + arg1 + "[" + arg2 + "]";
             case "index_set" -> resultado + "[" + arg1 + "] = " + arg2;

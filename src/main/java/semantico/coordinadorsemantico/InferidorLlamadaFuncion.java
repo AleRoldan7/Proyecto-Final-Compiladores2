@@ -20,7 +20,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class InferidorLlamadaFuncion implements InferirTipo<LlamadaFuncion> {
 
-    private static final Set<String> LECTURAS = Set.of("readln", "leer");
+    private static final Set<String> LECTURAS = Set.of("readln","read", "leer");
     private static final Set<String> IMPRESIONES = Set.of("print", "println", "imprimir");
 
     private final InferirTipoCoordinador inferirTipoCoordinador;

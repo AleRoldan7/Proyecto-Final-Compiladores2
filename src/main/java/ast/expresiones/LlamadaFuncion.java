@@ -16,6 +16,7 @@ public class LlamadaFuncion extends Expresion {
     private List<Expresion> argumentos;
     private boolean metodoDeClase;
     private TipoDato tipoResultado;
+    private TipoDato tipoLectura;
 
     public LlamadaFuncion(int linea, int columna, String nombre, List<Expresion> argumentos) {
         super(linea, columna);
@@ -43,8 +44,12 @@ public class LlamadaFuncion extends Expresion {
         }
 
         if (ContextoC3D.esLectura(getNombre())) {
-            String leido = contexto.nuevoTemporal(tipoResultado);
-            contexto.agregar("read", null, null, leido, tipoResultado);
+            TipoDato tipo = tipoLectura != null ? tipoLectura : tipoResultado;
+            if (tipo == null || tipo == TipoDato.DESCONOCIDO) {
+                throw new IllegalStateException("readln() sin tipo destino: asígnalo a una variable con tipo.");
+            }
+            String leido = contexto.nuevoTemporal(tipo);
+            contexto.agregar("read", null, null, leido, tipo);
             return leido;
         }
 
