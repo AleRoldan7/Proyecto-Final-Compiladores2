@@ -7,11 +7,14 @@ import enums.Categoria;
 import enums.TipoDato;
 import lombok.AllArgsConstructor;
 import semantico.AnalisisContexto;
+import semantico.Herencia;
 import semantico.Tipos;
+import semantico.analizadores.AnalizadorModificadorAcceso;
 import semantico.interfazsemantica.InferirTipo;
 import tablas.FilaTabla;
 import tablas.InformeTipo;
 import tablas.MetodoRecord;
+import tablas.TablaTipos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,18 +75,35 @@ public class InferidorLlamadaFuncion implements InferirTipo<LlamadaFuncion> {
 
         InformeTipo claseActual = analisisContexto.getClaseActual();
 
-        if (claseActual != null && claseActual.tieneMetodo(nombre)) {
-            nodoLlamada.setMetodoDeClase(true);
-            MetodoRecord firma = Tipos.resolverSobrecarga(claseActual.firmasDe(nombre), tiposArgumentos, analisisContexto);
+        if (claseActual != null) {
+            TablaTipos tipos = analisisContexto.getTablaTipos();
+            List<MetodoRecord> candidatos = Herencia.firmasVisibles(claseActual, nombre, tipos);
 
-            if (firma == null) {
-                analisisContexto.reportarError(linea, columna,
-                        "No existe una versión de '" + nombre + "' que reciba esos argumentos");
-                return null;
+            if (!candidatos.isEmpty()) {
+                nodoLlamada.setMetodoDeClase(true);
+
+
+                MetodoRecord firma = Tipos.resolverSobrecarga(candidatos, tiposArgumentos, analisisContexto);
+
+                if (firma == null) {
+                    analisisContexto.reportarError(linea, columna,
+                            "No existe una versión de '" + nombre + "' que reciba esos argumentos");
+                    return null;
+                }
+
+                InformeTipo dueno = Herencia.ownerDeMetodo(claseActual, firma, tipos);
+                nodoLlamada.setClaseReceptor(dueno.getNombre());
+
+                if (!AnalizadorModificadorAcceso.puedeAcceder(firma.modificadorAcceso(), dueno, claseActual, tipos)) {
+                    analisisContexto.reportarError(linea, columna,
+                            AnalizadorModificadorAcceso.mensajeDenegado("método", nombre, dueno,
+                                    firma.modificadorAcceso(), claseActual));
+                    return null;
+                }
+
+                Tipo retorno = firma.tipoRetorno();
+                return retorno != null ? retorno : Tipos.simple(linea, columna, Tipos.VOID);
             }
-
-            Tipo retorno = firma.tipoRetorno();
-            return retorno != null ? retorno : Tipos.simple(linea, columna, Tipos.VOID);
         }
 
         FilaTabla fila = analisisContexto.getTablaSimbolos().buscar(nombre);

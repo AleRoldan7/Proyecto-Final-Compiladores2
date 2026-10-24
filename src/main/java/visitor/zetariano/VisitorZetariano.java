@@ -20,6 +20,7 @@ import compi2.proyectofinal.GrammarZetarianoParser;
 
 import semantico.AnalisisContexto;
 
+import org.antlr.v4.runtime.tree.ParseTree;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,6 +82,7 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
                 if (nodo instanceof Metodo metodo) metodos.add(metodo);
             }
         }
+        inyectarInicializadoresDeCampos(atributos, constructores);
         superClaseActual = null;
         return new Clase(linea(ctx), columna(ctx), nombreClase, superClase, atributos, constructores, metodos);
     }
@@ -98,6 +100,13 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
             atributo.setModificadorAcceso(convertirModificador(modificador));
         }
 
+        // Arreglo con "= new tipo[n]...": SIEMPRE se guarda como inicializacion
+        // (sin importar cuantas dimensiones tenga) para que init_<Clase> la genere.
+        if (esTipoArreglo(ctx.tipo()) && ctx.expresion() != null) {
+            atributo.setInicializacion((Expresion) visit(ctx.expresion()));
+            return atributo;
+        }
+
         if (esTipoArreglo(ctx.tipo())) {
 
             List<Expresion> valoresIniciales = new ArrayList<>();
@@ -107,20 +116,23 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
                 }
             }
 
+            // Arreglo con lista de valores {a, b, c}: se convierte en un CrearArreglo
+            // con tamanio = cantidad de valores, tambien como inicializacion.
+            if (!valoresIniciales.isEmpty() && cantidadDimensiones(ctx.tipo()) == 1) {
+                List<Expresion> dimensiones = new ArrayList<>();
+                dimensiones.add(new Literal(linea(ctx), columna(ctx), valoresIniciales.size(), "int"));
+
+                String tipoBase = ctx.tipo().tipoBase().getText();
+                atributo.setInicializacion(new CrearArreglo(
+                        linea(ctx), columna(ctx), tipoBase, dimensiones, valoresIniciales));
+                return atributo;
+            }
+
+            // Sin inicializador: se mantiene el comportamiento anterior
             List<Expresion> dimensiones = new ArrayList<>();
-            if (ctx.expresion() != null) {
-                NodoAST inicializacion = visit(ctx.expresion());
-                if (inicializacion instanceof CrearArreglo crearArreglo) {
-                    dimensiones = crearArreglo.getDimensiones();
-                }
+            for (int i = 0; i < cantidadDimensiones(ctx.tipo()); i++) {
+                dimensiones.add(null);
             }
-
-            if (dimensiones.isEmpty()) {
-                for (int i = 0; i < cantidadDimensiones(ctx.tipo()); i++) {
-                    dimensiones.add(null);
-                }
-            }
-
             atributo.setDimensiones(dimensiones);
             atributo.setValoresIniciales(valoresIniciales);
 
@@ -247,6 +259,11 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
 
         Tipo tipo = construirTipo(ctx.tipo());
         String nombre = ctx.ID().getText();
+
+        if (cantidadDimensiones(ctx.tipo()) > 1 && ctx.expresion() != null) {
+            Expresion inicializacion = (Expresion) visit(ctx.expresion());
+            return new DeclaracionVariable(linea(ctx), columna(ctx), tipo, nombre, inicializacion);
+        }
 
         if (esTipoArreglo(ctx.tipo())) {
 
@@ -802,39 +819,42 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
     @Override
     public NodoAST visitLlamadaMetodo(GrammarZetarianoParser.LlamadaMetodoContext ctx) {
 
-        List<TerminalNode> ids = ctx.ID();
-        int totalIds = ids.size();
+        List<ParseTree> hijos = ctx.receptor().children;
 
-        boolean usaSelf = ctx.THIS() != null || ctx.SUPER() != null;
+        TerminalNode raiz = (TerminalNode) hijos.get(0);
+        boolean esSuperDirecto = raiz.getSymbol().getType() == GrammarZetarianoParser.SUPER
+                && hijos.size() == 1;
 
-        Expresion objeto;
-        int siguienteId;
+        Expresion objeto = new Identificador(linea(ctx), columna(ctx), raiz.getText());
 
-        if (usaSelf) {
-            objeto = new Identificador(linea(ctx), columna(ctx), ctx.SUPER() != null ? "super" : "this");
-            siguienteId = 0;
-        } else {
-            objeto = new Identificador(linea(ctx), columna(ctx), ids.get(0).getText());
-            siguienteId = 1;
+        int i = 1;
+        while (i < hijos.size()) {
+            TerminalNode simbolo = (TerminalNode) hijos.get(i);
+            int tipo = simbolo.getSymbol().getType();
+
+            if (tipo == GrammarZetarianoParser.PUNTO) {
+                String atributo = hijos.get(i + 1).getText();
+                objeto = new AccesoAtributo(linea(ctx), columna(ctx), objeto, atributo);
+                i += 2;
+            } else {
+                Expresion indice = (Expresion) visit(hijos.get(i + 1));
+                objeto = new AccesoArreglo(linea(ctx), columna(ctx), objeto, List.of(indice));
+                i += 3;
+            }
         }
 
-        while (siguienteId < totalIds - 1) {
-            objeto = new AccesoAtributo(linea(ctx), columna(ctx), objeto, ids.get(siguienteId++).getText());
-        }
-
-        String nombreMetodo = ids.get(totalIds - 1).getText();
+        String nombreMetodo = ctx.ID().getText();
         List<Expresion> argumentos = construirArgumentos(ctx.listaArgumentos());
 
         LlamadaMetodo llamada = new LlamadaMetodo(linea(ctx), columna(ctx), objeto, nombreMetodo, argumentos);
 
-        if (ctx.SUPER() != null && totalIds == 1) {
+        if (esSuperDirecto) {
             llamada.setEsSuper(true);
             llamada.setClaseReceptor(superClaseActual);
         }
 
         return llamada;
     }
-
 
 
     private Expresion recorrerBinariaIzquierda(
@@ -941,6 +961,41 @@ public class VisitorZetariano extends GrammarZetarianoBaseVisitor<NodoAST> {
             case "protected" -> ModificadorAcceso.PROTECTED;
             default -> ModificadorAcceso.DEFAULT;
         };
+    }
+
+    private void inyectarInicializadoresDeCampos(List<Atributo> atributos, List<Constructor> constructores) {
+
+        for (Constructor constructor : constructores) {
+
+            Bloque cuerpo = constructor.getCuerpoConstructor();
+            if (cuerpo == null) continue;
+
+            List<Sentencia> nuevas = new ArrayList<>();
+
+            for (Atributo a : atributos) {
+                if (a.getInicializacion() == null) continue;
+
+                Expresion destino = new AccesoAtributo(
+                        a.getLinea(), a.getColumna(),
+                        new Identificador(a.getLinea(), a.getColumna(), "this"),
+                        a.getNombreAtributo());
+
+                nuevas.add(new Asignacion(a.getLinea(), a.getColumna(), destino, a.getInicializacion()));
+            }
+
+            if (nuevas.isEmpty()) continue;
+
+            List<Sentencia> sentencias = cuerpo.getSentencias();
+
+            int posicion = 0;
+            if (!sentencias.isEmpty()
+                    && sentencias.get(0) instanceof SentenciaExpresion se
+                    && se.getExpresion() instanceof LlamadaConstructorPadre) {
+                posicion = 1;
+            }
+
+            sentencias.addAll(posicion, nuevas);
+        }
     }
 
     private int linea(ParserRuleContext ctx) {

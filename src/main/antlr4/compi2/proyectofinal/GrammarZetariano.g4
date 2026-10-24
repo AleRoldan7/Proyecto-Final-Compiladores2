@@ -224,7 +224,11 @@ llamadaFuncion:
     ;
 
 llamadaMetodo:
-    (THIS | SUPER | ID) (PUNTO ID)* PUNTO ID PARENTESIS_ABRE listaArgumentos? PARENTESIS_CIERRA
+    receptor PUNTO ID PARENTESIS_ABRE listaArgumentos? PARENTESIS_CIERRA
+    ;
+
+receptor:
+    (THIS | SUPER | ID) (CORCHETE_ABRE expresion CORCHETE_CIERRA | PUNTO ID)*
     ;
 
 llamadaSuper:

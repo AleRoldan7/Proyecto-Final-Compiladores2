@@ -627,7 +627,7 @@ public class GeneradorRiscV {
             String arg = pendientes.get(k);
             TipoDato esperado = k < tiposParam.size() ? tiposParam.get(k) : tipoDeOperando(arg);
             if (esperado == TipoDato.DECIMAL) {
-                cargarDoble(arg, "fa" + k);                 // convierte a double si el argumento es entero
+                cargarDoble(arg, "fa" + k);
             } else {
                 cargar(arg, "a" + k);
             }
@@ -657,9 +657,7 @@ public class GeneradorRiscV {
         }
     }
 
-    // ============================ arreglos ============================
 
-    /** Deja en t0 la dirección de base[indice], con elementos de 'tam' bytes. */
     private void direccion(String base, String indice, int tam) {
         cargar(base, "t0");
         cargar(indice, "t1");

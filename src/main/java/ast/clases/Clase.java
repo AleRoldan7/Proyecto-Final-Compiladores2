@@ -1,6 +1,10 @@
 package ast.clases;
 
 import ast.NodoAST;
+import ast.expresiones.AccesoAtributo;
+import ast.expresiones.Expresion;
+import ast.expresiones.Identificador;
+import ast.sentencias.Asignacion;
 import c3d.ContextoC3D;
 import c3d.ConversorTipos;
 import enums.TipoDato;
@@ -41,7 +45,10 @@ public class Clase extends NodoAST {
             if (constructores == null || constructores.isEmpty()) {
                 generarConstructorPorDefecto(contexto);
             } else {
-                for (Constructor c : constructores) c.generarC3D(contexto);
+                for (Constructor c : constructores) {
+                    c.setClase(this);
+                    c.generarC3D(contexto);
+                }
             }
         } finally {
             contexto.setClaseActual(null);
@@ -96,68 +103,24 @@ public class Clase extends NodoAST {
         String nombreFuncion = ContextoC3D.nombreConstructor(nombreClase);
 
         contexto.abrirFuncion(nombreFuncion, List.of("self"), List.of(TipoDato.OBJETO));
+        emitirInicializadoresCampos(contexto);
         contexto.cerrarFuncion(nombreFuncion);
     }
-    /*
-    @Override
-    public String generarC3D(ContextoC3D contexto) {
-        contexto.setClaseActual(nombreClase);
-        try {
-            for (Metodo m : metodos) m.generarC3D(contexto);
-            if (constructores == null || constructores.isEmpty()) {
-                generarConstructorPorDefecto(contexto);
-            } else {
-                for (Constructor c : constructores) c.generarC3D(contexto);
-            }
-        } finally {
-            contexto.setClaseActual(null);
-        }
-        return null;
-    }
 
+    public void emitirInicializadoresCampos(ContextoC3D contexto) {
 
-    public void registrarDisposicion(ContextoC3D contexto) {
+        if (atributos == null) return;
 
-        List<String> nombres = new ArrayList<>();
-        List<TipoDato> tipos = new ArrayList<>();
-        for (var atributo : atributos) {
-            nombres.add(atributo.getNombreAtributo());
-            String tipoNombre = atributo.getTipo() != null ? atributo.getTipo().getNombre() : null;
-            tipos.add(convertirTipoDatoDesdeNombre(tipoNombre));
-        }
-        //contexto.registrarClase(nombreClase, nombres);
-        contexto.registrarClase(nombreClase, nombres, tipos);
+        for (Atributo a : atributos) {
 
-        if (constructores != null) {
-            contexto.registrarFuncion(ContextoC3D.nombreConstructor(nombreClase));
+            if (a.getInicializacion() == null) continue;
+
+            Expresion destino = new AccesoAtributo(a.getLinea(), a.getColumna(),
+                    new Identificador(a.getLinea(), a.getColumna(), "this"),
+                    a.getNombreAtributo());
+
+            new Asignacion(a.getLinea(), a.getColumna(), destino, a.getInicializacion())
+                    .generarC3D(contexto);
         }
     }
-
-    private static TipoDato convertirTipoDatoDesdeNombre(String nombreTipo) {
-        if (nombreTipo == null) {
-            return TipoDato.DESCONOCIDO;
-        }
-
-        return switch (nombreTipo.toLowerCase()) {
-            case "entero", "int" -> TipoDato.ENTERO;
-            case "decimal", "double", "float" -> TipoDato.DECIMAL;
-            case "texto", "string", "cadena" -> TipoDato.TEXTO;
-            case "caracter", "char" -> TipoDato.CARACTER;
-            case "booleano", "bool", "boolean" -> TipoDato.BOOLEANO;
-            case "void" -> TipoDato.VOID;
-            default -> TipoDato.OBJETO;
-        };
-    }
-
-    private void generarConstructorPorDefecto(ContextoC3D contexto) {
-
-        String nombreFuncion = ContextoC3D.nombreConstructor(nombreClase);
-
-        contexto.registrarFuncion(nombreFuncion);
-        contexto.agregarEtiqueta("func_" + nombreFuncion);
-        contexto.agregar("param_decl", nombreClase, "self", null);
-        contexto.agregar("return", null, null, null);
-        contexto.agregarEtiqueta("end_" + nombreFuncion);
-    }
-     */
 }

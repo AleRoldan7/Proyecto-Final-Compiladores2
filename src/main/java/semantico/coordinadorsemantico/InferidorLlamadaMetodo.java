@@ -100,39 +100,6 @@ public class InferidorLlamadaMetodo implements InferirTipo<LlamadaMetodo> {
         Tipo retorno = firma.tipoRetorno();
         return retorno != null ? retorno : Tipos.simple(nodoMetodo.getLinea(), nodoMetodo.getColumna(), Tipos.VOID);
 
-        /*
-        InformeTipo tipoClase = analisisContexto.getTablaTipos().obtener(tipoObjeto.getNombre());
-
-        if (tipoClase == null) {
-            analisisContexto.reportarError(nodoMetodo.getLinea(), nodoMetodo.getColumna(),
-                    "'" + tipoObjeto.getNombre() + "' no es una clase declarada (¿falta el import?)");
-            return null;
-        }
-
-        if (!tipoClase.tieneMetodo(nodoMetodo.getMetodo())) {
-            analisisContexto.reportarError(nodoMetodo.getLinea(), nodoMetodo.getColumna(),
-                    "'" + tipoObjeto.getNombre() + "' no tiene un método '" + nodoMetodo.getMetodo() + "'");
-            return null;
-        }
-
-        if (!argumentosValidos) {
-            return null;
-        }
-
-        MetodoRecord firma = Tipos.resolverSobrecarga(tipoClase.firmasDe(nodoMetodo.getMetodo()), tiposArgumentos, analisisContexto);
-
-        if (firma == null) {
-            analisisContexto.reportarError(nodoMetodo.getLinea(), nodoMetodo.getColumna(),
-                    "No existe una versión de '" + nodoMetodo.getMetodo() + "' que reciba esos argumentos");
-            return null;
-        }
-
-        Tipo retorno = firma.tipoRetorno();
-        return retorno != null
-                ? retorno
-                : Tipos.simple(nodoMetodo.getLinea(), nodoMetodo.getColumna(), Tipos.VOID);
-    }
-    */
     }
 
     private Tipo tipoDeSuper(LlamadaMetodo nodo, AnalisisContexto ctx) {

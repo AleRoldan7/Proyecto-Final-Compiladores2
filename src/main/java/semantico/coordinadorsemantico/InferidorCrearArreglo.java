@@ -62,11 +62,7 @@ public class InferidorCrearArreglo implements InferirTipo<CrearArreglo> {
 
         int dims = dimensiones.size();
 
-        StringBuilder nombre = new StringBuilder(nodoArreglo.getTipoBase());
-        for (int i = 0; i < dims; i++) {
-            nombre.append("[]");
-        }
-
-        return new Tipo(nodoArreglo.getLinea(), nodoArreglo.getColumna(), nombre.toString(), dims > 0, dims);
+        return new Tipo(nodoArreglo.getLinea(), nodoArreglo.getColumna(),
+                nodoArreglo.getTipoBase(), dims > 0, dims);
     }
 }
