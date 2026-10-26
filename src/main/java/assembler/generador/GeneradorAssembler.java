@@ -29,7 +29,6 @@ public class GeneradorAssembler {
         return s != null && NUMERO.matcher(s).matches();
     }
 
-    /** Carga un operando (variable o inmediato) en un registro y lo retorna */
     private RegistroAssembler cargarOperando(String operando) {
         RegistroAssembler r = ctx.getAdministradorRegistro().obtenerRegistro();
         if (esNumero(operando)) {
