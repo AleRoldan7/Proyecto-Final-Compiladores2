@@ -357,7 +357,6 @@ public class ContextoC3D {
         return tipoVariables.getOrDefault(nombre, TipoDato.DESCONOCIDO);
     }
 
-    /** Variable global del programa: su tipo también alimenta la inferencia de los generadores. */
     public void registrarGlobal(String nombre, TipoDato tipo) {
         tipoVariables.put(nombre, tipo);
         tipoTemporales.put(nombre, tipo);
@@ -371,6 +370,7 @@ public class ContextoC3D {
         return nombre;
     }
 
+
     // =====================================================
     //  Llamada y retorno
     // =====================================================
@@ -380,6 +380,13 @@ public class ContextoC3D {
     }
 
     public String llamar(String funcion, List<String> argumentos, TipoDato tipoRetorno) {
+
+        if (funcion.equals("read") || funcion.equals("leer") || funcion.equals("readln")) {
+            String resultado = nuevoTemporal(tipoRetorno != null ? tipoRetorno : TipoDato.DESCONOCIDO);
+            agregar("read", null, null, resultado, tipoRetorno);
+            return resultado;
+        }
+
         String real = nombreReal(funcion, argumentos.size());
         llamadasPendientes.putIfAbsent(real,
                 funcion + " con " + argumentos.size() + " argumento(s) (contando self)");
@@ -407,10 +414,7 @@ public class ContextoC3D {
         cuartetas.add(new Cuarteta("return", valor == null ? "-" : valor, null, null, null));
     }
 
-    // =====================================================
-    //  Guardado de temporales vivos alrededor de las llamadas
-    //  (los temporales son globales de C: la recursión los pisaría)
-    // =====================================================
+
     private void expandirLlamadas() {
 
         int ini = indicePrologo;

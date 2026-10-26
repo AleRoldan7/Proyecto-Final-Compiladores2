@@ -754,7 +754,7 @@ public class VisitorPigLatin extends GrammarPigLatinBaseVisitor<NodoAST> {
         }
 
         if (ctx.DECIMAL() != null) {
-            return new Literal(linea, columna, Double.parseDouble(texto), "decimalis");
+            return new Literal(linea, columna, Double.parseDouble(ctx.DECIMAL().getText()), "decimalis");
         }
 
         if (ctx.VERUM() != null) {

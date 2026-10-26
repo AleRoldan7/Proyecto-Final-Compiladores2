@@ -6,20 +6,13 @@ import enums.TipoDato;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * Traductor C3D -> RISC-V (RARS) sin rutinas de runtime: cada operación se
- * expande en línea, con etiquetas propias.
- *
- *   marco en la pila real: -4(s0) = ra, 0(s0) = s0 anterior
- *   llamadas: jal ra, f   (argumentos en a0..a7, decimales en fa0..fa7)
- *   retorno: a0 (fa0 si es decimal)
- *   heap: se reserva una vez en _start; heap_ptr apunta al siguiente byte libre
- */
+
 public class GeneradorRiscV {
 
     private static final Pattern PATRON_ENTERO   = Pattern.compile("-?\\d+");
     private static final Pattern PATRON_DECIMAL  = Pattern.compile("-?\\d+\\.\\d+");
     private static final Pattern PATRON_CARACTER = Pattern.compile("\"'.'\"");
+    private static final Pattern PATRON_TEMPORAL = Pattern.compile("t\\d+");
     private static final Set<String> COMPARACIONES = Set.of("<", "<=", ">", ">=", "==", "!=");
     private static final int ARENA = 1048576;
     private static final int CAMPO = 8;
@@ -104,6 +97,7 @@ public class GeneradorRiscV {
 
     private void emitirFuncion(String nombre, List<String> params, List<Cuarteta> cuerpo) {
         funciones.add(nombre);
+        inferirTiposLectura(cuerpo);
         calcularMarco(params, cuerpo);
 
         etiquetaCodigo(nombre);
@@ -112,11 +106,15 @@ public class GeneradorRiscV {
         emitir("sw ra, " + (marco - 8) + "(sp)");
         emitir("addi s0, sp, " + (marco - 4));
 
-        for (int k = 0; k < params.size(); k++) {
-            if (tipoDe(params.get(k)) == TipoDato.DECIMAL) {
-                guardarDoble("fa" + k, params.get(k));      // decimal: registro fa<k>
+        int regA = 0;     // siguiente registro a0..a7
+        int regFA = 0;    // siguiente registro fa0..fa7
+        for (String p : params) {
+            if (tipoDe(p) == TipoDato.DECIMAL) {
+                if (regFA > 7) throw new IllegalStateException("más de 8 parámetros decimales en " + nombre);
+                guardarDoble("fa" + regFA++, p);
             } else {
-                guardar("a" + k, params.get(k));            // resto: registro a<k>
+                if (regA > 7) throw new IllegalStateException("más de 8 parámetros no decimales en " + nombre);
+                guardar("a" + regA++, p);
             }
         }
         for (Cuarteta q : cuerpo) {
@@ -125,21 +123,55 @@ public class GeneradorRiscV {
         epilogo();
     }
 
+
+    private void inferirTiposLectura(List<Cuarteta> cuerpo) {
+        for (int i = 0; i < cuerpo.size(); i++) {
+            Cuarteta q = cuerpo.get(i);
+            if (!"read".equals(q.getOperador())) continue;
+
+            String res = q.getResultado();
+            if (tipoDeclarado(q) != TipoDato.DESCONOCIDO) continue;
+            if (tipoDe(res) != TipoDato.DESCONOCIDO) continue;
+
+            for (int j = i + 1; j < cuerpo.size(); j++) {
+                Cuarteta s = cuerpo.get(j);
+                if ("=".equals(s.getOperador()) && res.equals(s.getArg1())) {
+                    TipoDato t = tipoDe(s.getResultado());
+                    if (t != TipoDato.DESCONOCIDO) {
+                        tiposTemporales.put(res, t);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private void calcularMarco(List<String> params, List<Cuarteta> cuerpo) {
         LinkedHashSet<String> nombres = new LinkedHashSet<>(params);
         nombres.addAll(locales);
         for (Cuarteta q : cuerpo) {
             for (String v : variables(q)) {
-                if (locales.contains(v) || !globales.contains(v)) nombres.add(v);
+                if (locales.contains(v)) {
+                    nombres.add(v);                        // parámetro o local declarada
+                } else if (globales.contains(v)) {
+                    continue;                              // global conocida: va a .data
+                } else if (PATRON_TEMPORAL.matcher(v).matches() || tiposTemporales.containsKey(v)) {
+                    nombres.add(v);                        // temporal: slot en el marco
+                } else {
+                    // nombre sin declaración local ni temporal: es una global sin gdecl
+                    System.err.println("AVISO: '" + v + "' no tiene gdecl; se trata como global");
+                    globales.add(v);
+                    tiposGlobales.putIfAbsent(v, tipoDe(v));
+                }
             }
         }
 
         offsets = new HashMap<>();
-        int cur = 4;                                  // -4(s0) = ra
+        int cur = 4;
         for (String n : nombres) {
             if (tipoDe(n) == TipoDato.DECIMAL) {
                 cur += 8;
-                if (cur % 8 == 0) cur += 4;           // deja el double alineado a 8
+                if (cur % 8 == 0) cur += 4;
             } else {
                 cur += 4;
             }
@@ -207,7 +239,13 @@ public class GeneradorRiscV {
             case "attr_get" -> {
                 cargar(a1, "t0");
                 int off = Integer.parseInt(a2) * CAMPO;
-                if (tipoDe(res) == TipoDato.DECIMAL) {
+
+                TipoDato t = tipoDe(res);
+                if (t == TipoDato.DESCONOCIDO) t = tipoDeclarado(q);
+                if (t == TipoDato.DESCONOCIDO) t = TipoDato.ENTERO;
+                tiposTemporales.putIfAbsent(res, t);
+
+                if (t == TipoDato.DECIMAL) {
                     emitir("fld ft0, " + off + "(t0)");
                     guardarDoble("ft0", res);
                 } else {
@@ -215,10 +253,13 @@ public class GeneradorRiscV {
                     guardar("t1", res);
                 }
             }
-            case "field_set" -> {                         // res.campo[a1] = a2
+
+            case "field_set" -> {
                 cargar(res, "t0");
                 int off = Integer.parseInt(a1) * CAMPO;
-                if (tipoDeOperando(a2) == TipoDato.DECIMAL) {
+                TipoDato t = tipoDeOperando(a2);
+                if (t == TipoDato.DESCONOCIDO) t = tipoDeclarado(q);
+                if (t == TipoDato.DECIMAL) {
                     cargarDoble(a2, "ft0");
                     emitir("fsd ft0, " + off + "(t0)");
                 } else {
@@ -226,6 +267,7 @@ public class GeneradorRiscV {
                     emitir("sw t1, " + off + "(t0)");
                 }
             }
+
             case "new" -> reservarMemoria(Integer.parseInt(a2) * CAMPO, res);
             case "new_array" -> {
                 TipoDato el = tipoElementoNuevo(a1);
@@ -265,13 +307,15 @@ public class GeneradorRiscV {
             case "call" -> llamar(q);
             case "return" -> {
                 if (a1 != null && !"-".equals(a1)) {
-                    if (tipoDeOperando(a1) == TipoDato.DECIMAL) cargarDoble(a1, "fa0");
+                    TipoDato t = tipoDeOperando(a1);
+                    if (t == TipoDato.DESCONOCIDO) t = tipoDeclarado(q);
+                    if (t == TipoDato.DECIMAL) cargarDoble(a1, "fa0");
                     else cargar(a1, "a0");
                 }
                 epilogo();
             }
             case "read" -> leer(q);
-            case "print" -> imprimir(a1, "nl".equals(a2));
+            case "print" -> imprimir(q);
             case "comment" -> codigo.append("    # ").append(String.valueOf(res).replace('\n', ' ')).append('\n');
             case "ldecl", "gdecl", "halt" -> { }
             default -> throw new IllegalStateException("cuarteta sin traducción: " + op);
@@ -381,7 +425,6 @@ public class GeneradorRiscV {
 
     // ============================ texto en línea ============================
 
-    /** res = a + b, copiando ambos operandos (texto, carácter, entero o decimal) al heap. */
     private void concatenar(String a, String b, String res) {
         cargarOperandoTexto(a, 0);
         cargarOperandoTexto(b, 1);
@@ -418,8 +461,8 @@ public class GeneradorRiscV {
 
     private void terminarTexto(String destino) {
         emitir("sb zero, 0(t4)");
-        emitir("addi t4, t4, 8");                    // NUL + redondeo: (t4 + 1) subido a múltiplo de 8
-        emitir("andi t4, t4, -8");                   // el heap siempre queda alineado a 8
+        emitir("addi t4, t4, 8");
+        emitir("andi t4, t4, -8");
         emitir("la t6, heap_ptr");
         emitir("sw t4, 0(t6)");
         emitir("mv a0, t3");
@@ -444,7 +487,6 @@ public class GeneradorRiscV {
         emitir("addi t4, t4, 1");
     }
 
-    /** Escribe el entero de 'reg' en decimal, con signo si es negativo. */
     private void agregarEntero(String reg) {
         String pos = etiqueta("ent_pos"), dig = etiqueta("ent_dig");
         String inv = etiqueta("ent_inv"), invFin = etiqueta("ent_invfin");
@@ -457,7 +499,7 @@ public class GeneradorRiscV {
         emitir("addi t4, t4, 1");
         etiquetaCodigo(pos);
 
-        emitir("mv t1, t4");                         // inicio de los dígitos
+        emitir("mv t1, t4");
         etiquetaCodigo(dig);
         emitir("li t5, 10");
         emitir("rem t2, t0, t5");
@@ -467,7 +509,7 @@ public class GeneradorRiscV {
         emitir("addi t4, t4, 1");
         emitir("bnez t0, " + dig);
 
-        emitir("addi t5, t4, -1");                   // invertir los dígitos escritos
+        emitir("addi t5, t4, -1");
         etiquetaCodigo(inv);
         emitir("bge t1, t5, " + invFin);
         emitir("lbu t2, 0(t1)");
@@ -495,8 +537,8 @@ public class GeneradorRiscV {
         etiquetaCodigo(pos);
 
         emitir("li t5, 10");
-        emitir("rem t6, t0, t5");                    // cifra decimal (t6 no lo usa agregarEntero)
-        emitir("div t0, t0, t5");                    // parte entera
+        emitir("rem t6, t0, t5");
+        emitir("div t0, t0, t5");
         agregarEntero("t0");
         emitir("li t5, 46");
         emitir("sb t5, 0(t4)");
@@ -533,7 +575,6 @@ public class GeneradorRiscV {
 
     // ============================ memoria y E/S ============================
 
-    /** Reserva 'bytes' en el heap y deja la dirección en 'destino'. */
     private void reservarMemoria(int bytes, String destino) {
         punteroHeapAlineado("a0");
         emitir("addi t4, a0, " + redondear(bytes, 8));
@@ -549,7 +590,6 @@ public class GeneradorRiscV {
                 emitir("li a7, 7");
                 emitir("ecall");
                 guardarDoble("fa0", res);
-                consumirLinea();
             }
             case TEXTO -> leerTexto(res);
             case CARACTER -> {
@@ -566,7 +606,6 @@ public class GeneradorRiscV {
                 emitir("li a7, 5");
                 emitir("ecall");
                 guardar("a0", res);
-                consumirLinea();
             }
             default -> throw new IllegalStateException("readln() hacia '" + res + "' con tipo " + t
                     + ". El tipo del destino no se reconoce: revisa la conversión de tipos.");
@@ -620,16 +659,21 @@ public class GeneradorRiscV {
             throw new IllegalStateException("llamada a '" + funcion + "' con " + pendientes.size()
                     + " param(s) pendientes, se esperaban " + n);
         }
-        if (n > 8) throw new IllegalStateException("más de 8 argumentos en " + funcion);
 
         List<TipoDato> tiposParam = firmas.getOrDefault(funcion, List.of());
+        int regA = 0;
+        int regFA = 0;
         for (int k = 0; k < n; k++) {
             String arg = pendientes.get(k);
-            TipoDato esperado = k < tiposParam.size() ? tiposParam.get(k) : tipoDeOperando(arg);
+            TipoDato esperado = k < tiposParam.size() ? tiposParam.get(k) : TipoDato.DESCONOCIDO;
+            if (esperado == TipoDato.DESCONOCIDO) esperado = tipoDeOperando(arg);
+
             if (esperado == TipoDato.DECIMAL) {
-                cargarDoble(arg, "fa" + k);
+                if (regFA > 7) throw new IllegalStateException("más de 8 argumentos decimales en " + funcion);
+                cargarDoble(arg, "fa" + regFA++);
             } else {
-                cargar(arg, "a" + k);
+                if (regA > 7) throw new IllegalStateException("más de 8 argumentos no decimales en " + funcion);
+                cargar(arg, "a" + regA++);
             }
         }
         pendientes.clear();
@@ -638,13 +682,21 @@ public class GeneradorRiscV {
         String res = q.getResultado();
         if (res == null || "-".equals(res)) return;
 
-        TipoDato t = tipoDeclarado(q) != TipoDato.DESCONOCIDO ? tipoDeclarado(q) : tipoDe(res);
+        TipoDato t = tipoDeclarado(q);
+        if (t == TipoDato.DESCONOCIDO) t = tipoDe(res);
+        tiposTemporales.putIfAbsent(res, t);
         if (t == TipoDato.DECIMAL) guardarDoble("fa0", res);
         else guardar("a0", res);
     }
 
-    private void imprimir(String op, boolean saltoLinea) {
-        switch (tipoDeOperando(op)) {
+    private void imprimir(Cuarteta q) {
+        String op = q.getArg1();
+        boolean saltoLinea = "nl".equals(q.getArg2());
+
+        TipoDato t = q.getTipoDeclarado();
+        if (t == null || t == TipoDato.DESCONOCIDO) t = tipoDeOperando(op);
+
+        switch (t) {
             case DECIMAL -> { cargarDoble(op, "fa0"); emitir("li a7, 3"); emitir("ecall"); }
             case CARACTER -> { cargar(op, "a0"); emitir("li a7, 11"); emitir("ecall"); }
             case TEXTO -> { cargar(op, "a0"); emitir("li a7, 4"); emitir("ecall"); }
@@ -656,6 +708,7 @@ public class GeneradorRiscV {
             emitir("ecall");
         }
     }
+
 
 
     private void direccion(String base, String indice, int tam) {

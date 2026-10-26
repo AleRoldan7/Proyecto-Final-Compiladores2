@@ -262,7 +262,7 @@ public class VisitorPiton extends GrammarPythonBaseVisitor<NodoAST> {
     }
 
     /* =========================================================
-       EXPRESIONES — OPERADORES BINARIOS
+       EXPRESIONES OPERADORES BINARIOS
        ========================================================= */
 
     @Override
@@ -326,7 +326,7 @@ public class VisitorPiton extends GrammarPythonBaseVisitor<NodoAST> {
     }
 
     /* =========================================================
-       EXPRESIONES — UNARIAS
+       EXPRESIONES  UNARIAS
        ========================================================= */
 
     @Override
@@ -390,7 +390,7 @@ public class VisitorPiton extends GrammarPythonBaseVisitor<NodoAST> {
     }
 
     /* =========================================================
-       EXPRESIONES — PRIMARIAS
+       EXPRESIONES PRIMARIAS
        ========================================================= */
 
     @Override
@@ -854,7 +854,7 @@ public class VisitorPiton extends GrammarPythonBaseVisitor<NodoAST> {
         if (lit.DECIMAL() != null) {
             return new Literal(
                     linea(lit), columna(lit),
-                    Double.parseDouble(lit.getText()),
+                    Double.parseDouble(lit.DECIMAL().getText()),
                     "flotante"
             );
         }
