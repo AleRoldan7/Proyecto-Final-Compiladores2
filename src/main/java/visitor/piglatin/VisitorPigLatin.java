@@ -406,7 +406,7 @@ public class VisitorPigLatin extends GrammarPigLatinBaseVisitor<NodoAST> {
         return new SentenciaExpresion(
                 linea(ctx),
                 columna(ctx),
-                new LlamadaFuncion(linea(ctx), columna(ctx), "print", argumentos)
+                new LlamadaFuncion(linea(ctx), columna(ctx), "println", argumentos)
         );
     }
 
