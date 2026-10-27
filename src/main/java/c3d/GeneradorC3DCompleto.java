@@ -3,6 +3,7 @@ package c3d;
 import assembler.generador.GeneradorRiscV;
 import ast.NodoAST;
 import ast.Programa;
+import ast.declaraciones.DeclaracionFuncion;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,7 +43,7 @@ public class GeneradorC3DCompleto {
 
         for (ArchivoFuente archivo : archivos) {
             if (archivo.raiz() instanceof Programa programa && programa.getFunciones() != null) {
-                for (ast.declaraciones.DeclaracionFuncion f : programa.getFunciones()) {
+                for (DeclaracionFuncion f : programa.getFunciones()) {
                     int aridad = f.getParametros() == null ? 0 : f.getParametros().size();
                     ctx.registrarRetorno(f.getNombreFuncion(), aridad,
                             ConversorTipos.aTipoDato(f.getTipoRetorno()));
