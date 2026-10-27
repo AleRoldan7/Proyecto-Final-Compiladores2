@@ -189,7 +189,7 @@ public class ContextoC3D {
     }
 
     // =====================================================
-    //  Nombres de funciones (con aridad para soportar sobrecarga)
+    //  Nombres de funciones
     // =====================================================
     public static String nombreFuncion(String clase, String metodo) {
         return clase == null ? metodo : clase + "_" + metodo;
@@ -199,7 +199,6 @@ public class ContextoC3D {
         return "init_" + clase;
     }
 
-    /** Nombre real de la etiqueta: nombre__aridad (main no se modifica). */
     public static String nombreReal(String nombre, int aridad) {
         return "main".equals(nombre) ? nombre : nombre + "__" + aridad;
     }
@@ -216,7 +215,6 @@ public class ContextoC3D {
         return funciones;
     }
 
-    /** Se llama desde Clase.registrarDisposicion, antes de generar cualquier código. */
     public void registrarMetodo(String clase, String metodo, int aridad) {
         clasesPorMetodo
                 .computeIfAbsent(metodo + "/" + aridad, k -> new LinkedHashSet<>())
@@ -654,7 +652,6 @@ public class ContextoC3D {
             desplazamiento = 1 + mapaPadre.size();
         }
 
-        // 2) Atributos propios, a partir de la posición siguiente
         List<String> atributos = def.atributos();
         List<TipoDato> tipos = def.tipos();
         for (int i = 0; i < atributos.size(); i++) {
