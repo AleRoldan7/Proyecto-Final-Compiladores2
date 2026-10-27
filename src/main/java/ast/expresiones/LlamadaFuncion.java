@@ -60,10 +60,13 @@ public class LlamadaFuncion extends Expresion {
         }
         args.addAll(lugares);
 
-        String nombreReal = metodoDeClase
-                ? contexto.resolverMetodo(getClaseReceptor(), getNombre(), args.size())
-                : getNombre();
+        if (metodoDeClase) {
+            String clase = getClaseReceptor() != null
+                    ? getClaseReceptor()
+                    : contexto.getClaseActual();
+            return contexto.llamarVirtual(clase, getNombre(), args, tipoResultado);
+        }
 
-        return contexto.llamar(nombreReal, args, tipoResultado);
+        return contexto.llamar(getNombre(), args, tipoResultado);
     }
 }

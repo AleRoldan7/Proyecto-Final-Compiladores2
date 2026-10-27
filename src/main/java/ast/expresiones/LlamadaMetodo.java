@@ -29,7 +29,8 @@ public class LlamadaMetodo extends Expresion {
 
     @Override
     public String generarC3D(ContextoC3D contexto) {
-
+        System.out.println("LlamadaMetodo " + metodo + " esSuper=" + esSuper
+                + " claseReceptor=" + claseReceptor);
         List<String> args = new ArrayList<>();
         args.add(objeto.generarC3D(contexto));
 
@@ -44,37 +45,16 @@ public class LlamadaMetodo extends Expresion {
             return contexto.llamar(nombre, args, tipoResultado);
         }
 
-        if (claseReceptor != null) {
-            return contexto.llamarVirtual(claseReceptor, metodo, args, tipoResultado);
-        }
 
-        String nombreFuncion = contexto.resolverMetodo(claseReceptor, metodo, args.size());
-        return contexto.llamar(nombreFuncion, args, tipoResultado);
+        String clase = claseReceptor != null ? claseReceptor : contexto.getClaseActual();
+        if (clase == null) {
+            throw new IllegalStateException(
+                    "No se pudo determinar la clase del receptor de '" + metodo + "'");
+        }
+        return contexto.llamarVirtual(clase, metodo, args, tipoResultado);
+
+
+
     }
 
-    /*
-    @Override
-    public String generarC3D(ContextoC3D contexto) {
-
-        String obj = objeto.generarC3D(contexto);
-        contexto.agregar("param", obj, null, null);
-
-        if (argumentos != null) {
-            for (Expresion arg : argumentos) {
-                String valor = arg.generarC3D(contexto);
-                contexto.agregar("param", valor, null, null);
-            }
-        }
-
-        String temporal = contexto.nuevoTemporal(tipoResultado);
-        int cantidadArgs = ((argumentos == null) ? 0 : argumentos.size()) + 1;
-
-        String nombreFuncion = (claseReceptor != null)
-                ? ContextoC3D.nombreFuncion(claseReceptor, metodo)
-                : metodo;
-        contexto.agregar("call", nombreFuncion, String.valueOf(cantidadArgs), temporal);
-
-        return temporal;
-    }
-     */
 }

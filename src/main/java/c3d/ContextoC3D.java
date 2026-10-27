@@ -915,8 +915,6 @@ public class ContextoC3D {
         int aridad = argumentos.size();
         String self = argumentos.get(0);
 
-        // Las sobrescrituras comparten tipo de retorno (lo exige AnalizadorOverride),
-        // así que el tipo se resuelve una sola vez desde la clase estática.
         String ownerEstatico = definidorDe(claseEstatica, metodo, aridad);
         String base = nombreFuncion(ownerEstatico != null ? ownerEstatico : claseEstatica, metodo);
         TipoDato tipoReal = tipoRetornoDe(base, aridad, tipoRetorno);
@@ -925,11 +923,9 @@ public class ContextoC3D {
         String resultado = esVoid ? null : nuevoTemporal(tipoReal);
         String fin = nuevaEtiqueta();
 
-        // id = heap[self + 0]
         String id = temporalAuxiliar(TIPO_ENTERO);
         agregar("attr_get", self, "0", id, TIPO_ENTERO);
 
-        // Una rama por cada clase concreta que sea la estática o una subclase suya
         for (String clase : definicionesClase.keySet()) {
             if (!esSubtipo(clase, claseEstatica)) continue;
 
@@ -947,7 +943,6 @@ public class ContextoC3D {
             agregarEtiqueta(siguiente);
         }
 
-        // Caso por defecto: implementación de la clase estática
         String r = llamar(base, argumentos, tipoReal);
         if (!esVoid) agregar("=", r, null, resultado, tipoReal);
 
@@ -955,7 +950,6 @@ public class ContextoC3D {
         return resultado;
     }
 
-    /** Tipo de retorno: el recibido si es válido; si no, el registrado para la función. */
     private TipoDato tipoRetornoDe(String funcion, int aridad, TipoDato dado) {
         if (dado != null && dado != TipoDato.DESCONOCIDO) {
             return dado;
@@ -1027,5 +1021,31 @@ public class ContextoC3D {
             actual = (def == null) ? null : def.superclase();
         }
         return null;
+    }
+
+    public String copiarArreglo(String origen, int celdas, String tipoBase, TipoDato tipoElemento) {
+        String copia = nuevoTemporal(TipoDato.ESTRUCTURA);
+        agregar("new_array", tipoBase, String.valueOf(celdas), copia);
+
+        String i = nuevoTemporal(TipoDato.ENTERO);
+        agregar("=", "0", null, i, TipoDato.ENTERO);
+
+        String inicio = nuevaEtiqueta();
+        String fin = nuevaEtiqueta();
+
+        agregarEtiqueta(inicio);
+        String cond = binaria("<", i, String.valueOf(celdas), TipoDato.BOOLEANO);
+        saltoSiFalso(cond, fin);
+
+        String elem = nuevoTemporal(tipoElemento);
+        agregar("index_get", origen, i, elem, tipoElemento);
+        agregar("index_set", i, elem, copia, tipoElemento);
+
+        String sig = binaria("+", i, "1", TipoDato.ENTERO);
+        agregar("=", sig, null, i, TipoDato.ENTERO);
+        salto(inicio);
+
+        agregarEtiqueta(fin);
+        return copia;
     }
 }

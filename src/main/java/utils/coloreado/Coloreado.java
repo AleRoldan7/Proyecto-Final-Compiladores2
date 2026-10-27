@@ -58,7 +58,7 @@ public class Coloreado {
 
             case GrammarZetarianoLexer.FOR:
             case GrammarZetarianoLexer.WHILE:
-            case GrammarZetarianoLexer.DO:
+
                 return "ciclo";
 
             case GrammarZetarianoLexer.IF:

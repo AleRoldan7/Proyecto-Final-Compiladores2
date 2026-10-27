@@ -20,7 +20,7 @@ public class Literal extends Expresion {
     @Override
     public String generarC3D(ContextoC3D contexto) {
         if (valor == null) {
-            return "0";   // null → 0
+            return "0";
         }
 
         if (valor instanceof String s) {

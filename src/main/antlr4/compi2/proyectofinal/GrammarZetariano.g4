@@ -101,7 +101,7 @@ elementoLista:
     ;
 
 asignacion:
-    accesoVariable op=(IGUAL | SUMA_ASIGNACION | RESTA_ASIGNACION | MULTI_ASIGNACION) expresion
+    accesoVariable op=(IGUAL | SUMA_ASIGNACION | RESTA_ASIGNACION | MULTI_ASIGNACION | DIVI_ASIGNACION | MODULO_ASIGNACION) expresion
     ;
 
 accesoVariable:
@@ -258,6 +258,8 @@ DECREMENTO: '--';
 SUMA_ASIGNACION: '+=';
 RESTA_ASIGNACION: '-=';
 MULTI_ASIGNACION: '*=';
+DIVI_ASIGNACION: '/=';
+MODULO_ASIGNACION: '%=';
 
 MAS: '+';
 RESTA: '-';

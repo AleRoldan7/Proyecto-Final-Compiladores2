@@ -1,5 +1,6 @@
 package ast.estructuras;
 
+import ast.expresiones.CrearArreglo;
 import ast.expresiones.Expresion;
 import c3d.ContextoC3D;
 import enums.TipoDato;
@@ -45,10 +46,32 @@ public class InicializacionEstructura extends Expresion {
                     contexto.agregar("field_set", String.valueOf(layout.offset() + k), celda, destino);
                 }
             } else {
-                contexto.agregar("field_set", String.valueOf(layout.offset()), origen, destino);
+            ContextoC3D.CampoDef campo = buscarCampo(contexto, nombreCampo);
+
+            boolean esArregloPuntero = campo != null
+                    && campo.anchoDeclarado() > 1
+                    && !(vals.get(i) instanceof CrearArreglo);
+
+            if (esArregloPuntero) {
+                origen = contexto.copiarArreglo(
+                        origen,
+                        campo.anchoDeclarado(),
+                        campo.tipo().name().toLowerCase(),
+                        campo.tipo());
             }
+            contexto.agregar("field_set", String.valueOf(layout.offset()), origen, destino);
+        }
         }
 
         return destino;
+    }
+
+    private ContextoC3D.CampoDef buscarCampo(ContextoC3D contexto, String nombreCampo) {
+        List<ContextoC3D.CampoDef> campos = contexto.getDefinicionesEstructura().get(nombreTipo);
+        if (campos == null) return null;
+        for (ContextoC3D.CampoDef c : campos) {
+            if (c.nombre().equals(nombreCampo)) return c;
+        }
+        return null;
     }
 }

@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 public enum TipoOperador {
 
-    ARITMETICO("+", "-", "/", "*", "%"),
+    ARITMETICO("+", "-", "/", "*", "%", "/=", "%="),
     RELACIONAL("<", ">", "<=", ">="),
     LOGICO("&&", "||"),
     IGUALDAD("==", "!=");

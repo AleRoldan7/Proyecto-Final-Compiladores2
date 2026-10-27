@@ -25,7 +25,6 @@ public class ExpresionBinaria extends Expresion {
     @Override
     public String generarC3D(ContextoC3D contexto) {
 
-        // && y || NO evaluan siempre los dos lados
         if (esLogico(operacion)) {
             return generarCortocircuito(contexto);
         }
@@ -46,22 +45,18 @@ public class ExpresionBinaria extends Expresion {
         String etiquetaCorto = contexto.nuevaEtiqueta();
         String etiquetaFin = contexto.nuevaEtiqueta();
 
-        // 1. Evaluar solo el lado izquierdo
         String izq = izquierda.generarC3D(contexto);
 
-        // 2. Si ya se decide el resultado, saltar sin tocar la derecha
         if (esAnd) {
             contexto.saltoSiFalso(izq, etiquetaCorto);
         } else {
             contexto.saltoSiVerdadero(izq, etiquetaCorto);
         }
 
-        // 3. Este codigo solo se ejecuta si hizo falta evaluar la derecha
         String der = derecha.generarC3D(contexto);
         contexto.asignar(resultado, der);
         contexto.salto(etiquetaFin);
 
-        // 4. Camino corto
         contexto.agregarEtiqueta(etiquetaCorto);
         contexto.asignar(resultado, esAnd ? "0" : "1");
 

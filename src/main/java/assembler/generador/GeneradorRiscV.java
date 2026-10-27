@@ -262,7 +262,7 @@ public class GeneradorRiscV {
                     guardar("t0", res);
                 }
             }
-            case "+", "-", "*", "/", "%", "<", "<=", ">", ">=", "==", "!=", "&&", "||" -> binaria(q);
+            case "+", "-", "*", "/", "%", "<", "<=", ">", ">=", "==", "!=", "&&", "||", "/=", "%=" -> binaria(q);
 
             case "attr_get" -> {
                 cargar(a1, "t0");
@@ -375,6 +375,8 @@ public class GeneradorRiscV {
             case "*" -> emitir("mul t2, t0, t1");
             case "/" -> emitir("div t2, t0, t1");
             case "%" -> emitir("rem t2, t0, t1");
+            case "/=" -> emitir("div t2, t0, t1");
+            case "%=" -> emitir("rem t2, t0, t1");
             case "<" -> emitir("slt t2, t0, t1");
             case ">" -> emitir("slt t2, t1, t0");
             case "<=" -> { emitir("slt t2, t1, t0"); emitir("xori t2, t2, 1"); }
@@ -398,6 +400,9 @@ public class GeneradorRiscV {
             case "-" -> { emitir("fsub.d ft2, ft0, ft1"); guardarDoble("ft2", res); }
             case "*" -> { emitir("fmul.d ft2, ft0, ft1"); guardarDoble("ft2", res); }
             case "/" -> { emitir("fdiv.d ft2, ft0, ft1"); guardarDoble("ft2", res); }
+
+            case "/=" -> { emitir("fdiv.d ft2, ft0, ft1"); guardarDoble("ft2", res); }
+
             case "<" -> { emitir("flt.d t2, ft0, ft1"); guardar("t2", res); }
             case ">" -> { emitir("flt.d t2, ft1, ft0"); guardar("t2", res); }
             case "<=" -> { emitir("fle.d t2, ft0, ft1"); guardar("t2", res); }
