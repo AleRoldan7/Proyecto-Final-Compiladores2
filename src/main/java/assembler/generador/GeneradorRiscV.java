@@ -25,14 +25,17 @@ public class GeneradorRiscV {
     private final Set<String> globales = new LinkedHashSet<>();
     private final Set<String> locales = new LinkedHashSet<>();
     private final Set<String> funciones = new LinkedHashSet<>();
-    private final Map<String, String> cadenas = new LinkedHashMap<>();   // literal -> etiqueta
-    private final Map<String, String> dobles = new LinkedHashMap<>();    // literal -> etiqueta
+    private final Map<String, String> cadenas = new LinkedHashMap<>();
+    private final Map<String, String> dobles = new LinkedHashMap<>();
     private final List<String> pendientes = new ArrayList<>();
-    private final Map<String, List<TipoDato>> firmas = new HashMap<>();   // función -> tipos de sus parámetros
+    private final Map<String, List<TipoDato>> firmas = new HashMap<>();
     private final StringBuilder codigo = new StringBuilder();
     private Map<String, Integer> offsets = new HashMap<>();
     private int marco;
     private int contadorEtiquetas = 0;
+
+    private static final int ARENA_ESTATICA = 1048576;
+    private static final int MARGEN_HEAP = 4096;
 
     private GeneradorRiscV(Map<String, TipoDato> tiposTemporales) {
         this.tiposTemporales = tiposTemporales;
@@ -227,8 +230,8 @@ public class GeneradorRiscV {
             case "if_true" -> {
                 cargar(a1, "t0");
                 String skip = etiqueta("skip");
-                emitir("beqz t0, " + skip);      // si falso, saltar el j
-                emitir("j " + lbl(res));          // si verdadero, salto largo
+                emitir("beqz t0, " + skip);
+                emitir("j " + lbl(res));
                 etiquetaCodigo(skip);
             }
             case "if_false" -> {
@@ -306,6 +309,7 @@ public class GeneradorRiscV {
                 emitir("andi t3, t3, -8");
                 punteroHeapAlineado("a0");
                 emitir("add t4, a0, t3");
+                verificarHeap("t4");
                 emitir("sw t4, 0(t6)");
                 guardar("a0", res);
             }
@@ -320,7 +324,7 @@ public class GeneradorRiscV {
                     guardar("t2", res);
                 }
             }
-            case "index_set" -> {                         // res[a1] = a2
+            case "index_set" -> {
                 TipoDato el = tipoElementoEscritura(q);
                 direccion(res, a1, tamanioElemento(el));
                 if (el == TipoDato.DECIMAL) {
@@ -449,7 +453,7 @@ public class GeneradorRiscV {
             case "<=" -> "bgt";
             case ">=" -> "blt";
             case "==" -> "bne";
-            default   -> "beq";           // "!="
+            default   -> "beq";
         };
         emitir(saltoInverso + " t0, t1, " + skip);
         emitir("j " + saltoLargo);
@@ -485,7 +489,6 @@ public class GeneradorRiscV {
         }
     }
 
-    /** t3 = inicio del texto nuevo, t4 = cursor de escritura. */
     private void iniciarTexto() {
         emitir("la t6, heap_ptr");
         emitir("lw t3, 0(t6)");
@@ -496,6 +499,7 @@ public class GeneradorRiscV {
         emitir("sb zero, 0(t4)");
         emitir("addi t4, t4, 8");
         emitir("andi t4, t4, -8");
+        verificarHeap("t4");
         emitir("la t6, heap_ptr");
         emitir("sw t4, 0(t6)");
         emitir("mv a0, t3");
@@ -555,7 +559,6 @@ public class GeneradorRiscV {
         etiquetaCodigo(invFin);
     }
 
-    /** Escribe un decimal con 6 cifras después del punto (como printf "%f"). */
     private void agregarDecimal(String freg) {
         String pos = etiqueta("dec_pos"), sinAjuste = etiqueta("dec_sin_ajuste");
 
@@ -569,25 +572,25 @@ public class GeneradorRiscV {
         emitir("addi t4, t4, 1");
         etiquetaCodigo(pos);
 
-        emitir("fcvt.w.d t0, ft7, rtz");             // parte entera
+        emitir("fcvt.w.d t0, ft7, rtz");
         emitir("fcvt.d.w ft6, t0");
-        emitir("fsub.d ft6, ft7, ft6");              // fracción
+        emitir("fsub.d ft6, ft7, ft6");
         emitir("li t5, 1000000");
         emitir("fcvt.d.w ft5, t5");
         emitir("fmul.d ft6, ft6, ft5");
-        emitir("fcvt.w.d t6, ft6, rne");             // fracción * 1e6, redondeada
+        emitir("fcvt.w.d t6, ft6, rne");
         emitir("li t5, 1000000");
         emitir("blt t6, t5, " + sinAjuste);
-        emitir("sub t6, t6, t5");                    // 0.9999999 -> 1.000000
+        emitir("sub t6, t6, t5");
         emitir("addi t0, t0, 1");
         etiquetaCodigo(sinAjuste);
 
-        agregarEntero("t0");                         // no toca t6, t3 ni t4 (cursor)
+        agregarEntero("t0");
         emitir("li t5, 46");
         emitir("sb t5, 0(t4)");
         emitir("addi t4, t4, 1");
 
-        for (int i = 5; i >= 0; i--) {               // 6 dígitos, de derecha a izquierda
+        for (int i = 5; i >= 0; i--) {
             emitir("li t5, 10");
             emitir("rem t2, t6, t5");
             emitir("div t6, t6, t5");
@@ -627,6 +630,7 @@ public class GeneradorRiscV {
     private void reservarMemoria(int bytes, String destino) {
         punteroHeapAlineado("a0");
         emitir("addi t4, a0, " + redondear(bytes, 8));
+        verificarHeap("t4");
         emitir("sw t4, 0(t6)");
         guardar("a0", destino);
     }
@@ -673,11 +677,11 @@ public class GeneradorRiscV {
         etiquetaCodigo(fin);
     }
 
-    /** Lee una línea en un bloque nuevo del heap y quita el salto final. */
     private void leerTexto(String destino) {
         emitir("la t6, heap_ptr");
         emitir("lw t3, 0(t6)");
         emitir("addi t4, t3, " + BUFFER_LECTURA);
+        verificarHeap("t4");
         emitir("sw t4, 0(t6)");
         emitir("mv a0, t3");
         emitir("li a1, " + BUFFER_LECTURA);
@@ -855,7 +859,6 @@ public class GeneradorRiscV {
         throw new IllegalStateException("destino sin ranura: " + destino);
     }
 
-    /** Carga un operando como decimal en 'freg', convirtiendo enteros si hace falta. */
     private void cargarDoble(String op, String freg) {
         if (PATRON_DECIMAL.matcher(op).matches()) {
             emitir("la t6, " + etiquetaDoble(op));
@@ -927,7 +930,6 @@ public class GeneradorRiscV {
                 || esCaracterSimple(s) || "true".equals(s) || "false".equals(s) || "null".equals(s);
     }
 
-    /** Operandos que una cuarteta usa como variable (no etiquetas, funciones ni literales). */
     private List<String> variables(Cuarteta q) {
         String op = q.getOperador();
         List<String> r = new ArrayList<>();
@@ -1036,11 +1038,12 @@ public class GeneradorRiscV {
         for (Map.Entry<String, String> e : cadenas.entrySet()) {
             s.append(e.getValue()).append(": .asciz ").append(e.getKey()).append('\n');
         }
+        s.append(".align 3\nheap_area: .space ").append(ARENA_ESTATICA).append('\n');
+        s.append("heap_fin: .space ").append(MARGEN_HEAP).append('\n');
 
         s.append("\n.text\n.globl _start\n_start:\n");
         s.append("    li t0, -16\n    and sp, sp, t0\n");
-        s.append("    li a0, ").append(ARENA).append("\n    li a7, 9\n    ecall\n");
-        s.append("    la t0, heap_ptr\n    sw a0, 0(t0)\n");
+        s.append("    la t0, heap_area\n    la t1, heap_ptr\n    sw t0, 0(t1)\n");
         if (funciones.contains("__init")) {
             s.append("    jal ra, __init\n");
         }
@@ -1049,5 +1052,18 @@ public class GeneradorRiscV {
 
         s.append(codigo);
         return s.toString();
+    }
+
+    private void verificarHeap(String regFin) {
+        String ok = etiqueta("heap_ok");
+        emitir("la t5, heap_fin");
+        emitir("bleu " + regFin + ", t5, " + ok);
+        cargar("\"Error: memoria agotada\\n\"", "a0");
+        emitir("li a7, 4");
+        emitir("ecall");
+        emitir("li a0, 1");
+        emitir("li a7, 93");
+        emitir("ecall");
+        etiquetaCodigo(ok);
     }
 }
