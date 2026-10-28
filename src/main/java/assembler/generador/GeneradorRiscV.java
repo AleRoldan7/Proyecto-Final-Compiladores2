@@ -14,7 +14,6 @@ public class GeneradorRiscV {
     private static final Pattern PATRON_CARACTER = Pattern.compile("\"'.'\"");
     private static final Pattern PATRON_TEMPORAL = Pattern.compile("t\\d+");
     private static final Set<String> COMPARACIONES = Set.of("<", "<=", ">", ">=", "==", "!=");
-    private static final int ARENA = 1048576;
     private static final int CAMPO = 8;
     private static final int BUFFER_LECTURA = 256;
     private final Set<Integer> camposDecimales = new HashSet<>();
@@ -34,7 +33,7 @@ public class GeneradorRiscV {
     private int marco;
     private int contadorEtiquetas = 0;
 
-    private static final int ARENA_ESTATICA = 1048576;
+    private static final int HEAP = 1048576;
     private static final int MARGEN_HEAP = 4096;
     private static final int PILA = 262144;   // 256 KB
 
@@ -922,9 +921,9 @@ public class GeneradorRiscV {
 
     private TipoDato tipoDe(String s) {
         if (s == null) return TipoDato.DESCONOCIDO;
-        TipoDato t = tiposTemporales.get(s);
-        if (t == null) t = tiposLocales.get(s);
-        if (t == null) t = tiposGlobales.get(s);
+        TipoDato t = tiposLocales.get(s);
+        if (t == null || t == TipoDato.DESCONOCIDO) t = tiposTemporales.get(s);
+        if (t == null || t == TipoDato.DESCONOCIDO) t = tiposGlobales.get(s);
         return t == null ? TipoDato.DESCONOCIDO : t;
     }
 
@@ -1051,7 +1050,7 @@ public class GeneradorRiscV {
         for (Map.Entry<String, String> e : cadenas.entrySet()) {
             s.append(e.getValue()).append(": .asciz ").append(e.getKey()).append('\n');
         }
-        s.append(".align 3\nheap_area: .space ").append(ARENA_ESTATICA).append('\n');
+        s.append(".align 3\nheap_area: .space ").append(HEAP).append('\n');
         s.append("heap_fin: .space ").append(MARGEN_HEAP).append('\n');
         s.append(".align 4\nstack_area: .space ").append(PILA).append('\n');
         s.append("stack_fin:\n");
