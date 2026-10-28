@@ -222,6 +222,24 @@ public class VisitorPigLatin extends GrammarPigLatinBaseVisitor<NodoAST> {
 
 
     @Override
+    public NodoAST visitAsignacionObjeto(GrammarPigLatinParser.AsignacionObjetoContext ctx) {
+
+        Expresion destino = construirAcceso(ctx, ctx.ID(0), ctx.acceso());
+
+        var creacion = ctx.creacionObjeto();
+        String claseCreada   = creacion.ID().getText();
+        String tipoDeclarado = ctx.ID(1).getText();
+
+        if (!claseCreada.equals(tipoDeclarado)) {
+            //return
+        }
+
+        Expresion valor = (Expresion) visit(creacion);
+
+        return new Asignacion(linea(ctx), columna(ctx), destino, valor);
+    }
+
+    @Override
     public NodoAST visitAsignacion(GrammarPigLatinParser.AsignacionContext ctx) {
 
         Expresion destino = construirAcceso(ctx, ctx.ID(), ctx.acceso());

@@ -89,6 +89,7 @@ sentencia:
     declaracionVariable
     | declaracionObjeto
     | declaracionArreglo
+    | asignacionObjeto
     | asignacion
     | condicional
     | cicloDum
@@ -106,6 +107,14 @@ sentencia:
 incrementoDecremento:
     ID acceso*
     (INCREMENTO | DECREMENTO)
+    PUNTO_COMA
+    ;
+
+asignacionObjeto:
+    ID acceso*
+    IGUAL
+    creacionObjeto
+    DOSPUNTOS ID
     PUNTO_COMA
     ;
 
