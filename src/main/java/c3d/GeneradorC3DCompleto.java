@@ -102,6 +102,9 @@ public class GeneradorC3DCompleto {
         Files.writeString(carpeta.resolve(nombreBase + ".c3d"), comoTexto(cuartetas));
 
         Files.writeString(carpeta.resolve(nombreBase + ".s"), GeneradorRiscV.generar(cuartetas, ultimoContexto.getTipoTemporales()));
+
+        String codigoC = GenerarCodigoC.traducir(cuartetas, ultimoContexto.getTipoTemporales());
+        Files.writeString(carpeta.resolve(nombreBase + ".c"), codigoC);
     }
 
 

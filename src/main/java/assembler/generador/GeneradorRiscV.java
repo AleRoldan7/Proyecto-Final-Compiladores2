@@ -36,6 +36,7 @@ public class GeneradorRiscV {
 
     private static final int ARENA_ESTATICA = 1048576;
     private static final int MARGEN_HEAP = 4096;
+    private static final int PILA = 262144;   // 256 KB
 
     private GeneradorRiscV(Map<String, TipoDato> tiposTemporales) {
         this.tiposTemporales = tiposTemporales;
@@ -108,9 +109,15 @@ public class GeneradorRiscV {
 
         etiquetaCodigo(nombre);
         emitir("addi sp, sp, -" + marco);
-        emitir("sw s0, " + (marco - 4) + "(sp)");
-        emitir("sw ra, " + (marco - 8) + "(sp)");
-        emitir("addi s0, sp, " + (marco - 4));
+        String pilaOk = etiqueta("pila_ok");
+        emitir("la t5, stack_area");
+        emitir("bgeu sp, t5, " + pilaOk);
+        emitir("j _desbordamiento_pila");
+        etiquetaCodigo(pilaOk);
+
+        emitir("sw ra, " + (marco - 4) + "(sp)");
+        emitir("sw s0, " + (marco - 8) + "(sp)");
+        emitir("addi s0, sp, " + marco);
 
         int regA = 0;
         int regFA = 0;
@@ -187,7 +194,7 @@ public class GeneradorRiscV {
                 } else if (globales.contains(v)) {
                     continue;
                 } else if (PATRON_TEMPORAL.matcher(v).matches() || tiposTemporales.containsKey(v)) {
-                    nombres.add(v);                        // temporal: slot en el marco
+                    nombres.add(v);
                 } else {
                     System.err.println("AVISO: '" + v + "' no tiene gdecl; se trata como global");
                     globales.add(v);
@@ -197,23 +204,24 @@ public class GeneradorRiscV {
         }
 
         offsets = new HashMap<>();
-        int cur = 4;
+        int cur = 8;
         for (String n : nombres) {
             if (tipoDe(n) == TipoDato.DECIMAL) {
                 cur += 8;
-                if (cur % 8 == 0) cur += 4;
+                cur = redondear(cur, 8);
             } else {
                 cur += 4;
             }
             offsets.put(n, -cur);
         }
-        marco = redondear(cur + 4, 16);
+        marco = redondear(cur, 16);
     }
 
     private void epilogo() {
         emitir("lw ra, -4(s0)");
-        emitir("lw s0, 0(s0)");
-        emitir("addi sp, sp, " + marco);
+        emitir("lw t0, -8(s0)");
+        emitir("mv sp, s0");
+        emitir("mv s0, t0");
         emitir("ret");
     }
 
@@ -605,6 +613,10 @@ public class GeneradorRiscV {
         cargar(b, "a1");
         String ciclo = etiqueta("txt_ciclo"), igual = etiqueta("txt_igual");
         String distinto = etiqueta("txt_distinto"), fin = etiqueta("txt_fin");
+
+        emitir("beq a0, a1, " + igual);
+        emitir("beqz a0, " + distinto);
+        emitir("beqz a1, " + distinto);
 
         etiquetaCodigo(ciclo);
         emitir("lbu t0, 0(a0)");
@@ -1027,6 +1039,7 @@ public class GeneradorRiscV {
 
     private String ensamblar() {
         StringBuilder s = new StringBuilder();
+        etiquetaCadena("\"Error: desbordamiento de pila\\n\"");
         s.append(".data\n");
         s.append("heap_ptr: .word 0\n");
         for (String g : globales) {
@@ -1040,15 +1053,20 @@ public class GeneradorRiscV {
         }
         s.append(".align 3\nheap_area: .space ").append(ARENA_ESTATICA).append('\n');
         s.append("heap_fin: .space ").append(MARGEN_HEAP).append('\n');
+        s.append(".align 4\nstack_area: .space ").append(PILA).append('\n');
+        s.append("stack_fin:\n");
 
         s.append("\n.text\n.globl _start\n_start:\n");
-        s.append("    li t0, -16\n    and sp, sp, t0\n");
+        s.append("    la sp, stack_fin\n");
         s.append("    la t0, heap_area\n    la t1, heap_ptr\n    sw t0, 0(t1)\n");
         if (funciones.contains("__init")) {
             s.append("    jal ra, __init\n");
         }
         s.append("    jal ra, main\n");
         s.append("    li a7, 10\n    ecall\n\n");
+        s.append("_desbordamiento_pila:\n");
+        s.append("    la a0, ").append(etiquetaCadena("\"Error: desbordamiento de pila\\n\"")).append("\n");
+        s.append("    li a7, 4\n    ecall\n    li a0, 1\n    li a7, 93\n    ecall\n\n");
 
         s.append(codigo);
         return s.toString();

@@ -13,10 +13,6 @@ public class Retorno extends MemoriaCelda {
         asmContexto.instruccion("la " + registroDestino + ", retval");
     }
 
-    /**
-     * Emite el ret_dispatch con caso por defecto.
-     * El AST llama a este método UNA vez, después de todas las funciones.
-     */
     public void emitirDispatch(int cantidadRetornos) {
 
         asmContexto.etiqueta("ret_dispatch");
@@ -32,7 +28,6 @@ public class Retorno extends MemoriaCelda {
             asmContexto.etiqueta(etiquetaOmitir);
         }
 
-        // caso por defecto: retaddr inválido
         asmContexto.comentario("retaddr invalido: terminar programa");
         asmContexto.instruccion("li a7, 10");
         asmContexto.instruccion("ecall");

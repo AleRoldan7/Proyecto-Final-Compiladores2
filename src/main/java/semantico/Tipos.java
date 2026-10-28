@@ -274,8 +274,7 @@ public class Tipos {
         }
 
         if (esNull(real)) {
-            return esperado.isArreglo()
-                    || canonico(esperado, contexto) == TipoDato.OBJETO;
+            return esperado.isArreglo() || canonico(esperado, contexto) == TipoDato.OBJETO || canonico(esperado, contexto) == TipoDato.TEXTO;
         }
 
         if (esperado.isArreglo() != real.isArreglo()) {
